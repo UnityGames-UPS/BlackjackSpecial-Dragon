@@ -13,6 +13,7 @@ public class BJController : MonoBehaviour
   [SerializeField] private Transform PlayerContainer_Transform;
   [SerializeField] private Transform DealerContainer_Transform;
   [SerializeField] private Transform Deck_Transform;
+  [SerializeField] private Transform EndDeck_Transform;
   [SerializeField] private Transform FirstSplit_Transform;
   [SerializeField] private Transform SecondSplit_Transform;
 
@@ -23,11 +24,13 @@ public class BJController : MonoBehaviour
   [SerializeField] private List<int> instantiated_Value;
   [SerializeField] private List<GameObject> multiplyinstantiated_Coins;
   [SerializeField] private List<int> multiplyinstantiated_Value;
+  [SerializeField] internal List<string> betHistory;
 
   [Header("Integers")]
   [SerializeField] private int CoinCounter = 0;
   [SerializeField] private int[] amount_array;
-  [SerializeField] private int totalBet = 0;
+  [SerializeField] private int mainBet = 0;
+  [SerializeField] private int multiplierBet = 0;
   [SerializeField] private int dealerTotal = 0;
   [SerializeField] private int playerTotal = 0;
 
@@ -35,6 +38,7 @@ public class BJController : MonoBehaviour
   [SerializeField] private GameObject Cards_Prefab;
 
   [Header("Card Sprites")]
+  [SerializeField] private Sprite card_Back;
   [SerializeField] private Sprite[] clubs_Sprite;
   [SerializeField] private Sprite[] spades_Sprite;
   [SerializeField] private Sprite[] hearts_Sprite;
@@ -52,7 +56,7 @@ public class BJController : MonoBehaviour
   [SerializeField] internal List<int> playerData;
   [SerializeField] internal List<int> firstplayerData;
   [SerializeField] internal List<int> secondplayerData;
-  [SerializeField]internal List<int> dealerData;
+  [SerializeField] internal List<int> dealerData;
 
   private int totalValue = 0;
   private int FirsttotalValue = 0;
@@ -82,8 +86,8 @@ public class BJController : MonoBehaviour
 
   internal void DoubleBetButton()
   {
-    totalBet *= 2;
-    if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
+    mainBet *= 2;
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
   }
 
   internal void BetOnButton()
@@ -95,13 +99,15 @@ public class BJController : MonoBehaviour
     coin.transform.DOLocalMove(new Vector2(0, instantiated_Coins.Count * 2), 0.5f).OnComplete(delegate { OptimizeCoinStack(); });
     instantiated_Coins.Add(coin);
     instantiated_Value.Add(amount_array[CoinCounter]);
-    totalBet += amount_array[CoinCounter];
-    if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
+    mainBet += amount_array[CoinCounter];
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    betHistory.Add("main_" + amount_array[CoinCounter]);
     Canvas.ForceUpdateCanvases();
   }
 
   internal void MultiplierBetOnButton()
   {
+    if (mainBet == 0) return;
     GameObject coin = Instantiate(Coins_Prefab[CoinCounter], CoinContainers_Transform[CoinCounter]);
     coin.transform.localPosition = Vector2.zero;
     coin.transform.SetParent(MultiplyChipsParent_Transform);
@@ -109,8 +115,9 @@ public class BJController : MonoBehaviour
     coin.transform.DOLocalMove(new Vector2(0, multiplyinstantiated_Coins.Count * 2), 0.5f).OnComplete(delegate { MultiplyOptimizeCoinStack(); });
     multiplyinstantiated_Coins.Add(coin);
     multiplyinstantiated_Value.Add(amount_array[CoinCounter]);
-    totalBet += amount_array[CoinCounter];
-    if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
+    multiplierBet += amount_array[CoinCounter];
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    betHistory.Add("multiplier_" + amount_array[CoinCounter]);
     Canvas.ForceUpdateCanvases();
   }
 
@@ -124,9 +131,9 @@ public class BJController : MonoBehaviour
     {
       int currentValue = coinValues[i];
       int nextValue = coinValues[i + 1];
-      
+
       int currentCount = 0;
-      foreach(int value in instantiated_Value)
+      foreach (int value in instantiated_Value)
       {
         if (value == currentValue)
         {
@@ -149,6 +156,7 @@ public class BJController : MonoBehaviour
             Destroy(instantiated_Coins[indexToRemove]);
             instantiated_Coins.RemoveAt(indexToRemove);
             instantiated_Value.RemoveAt(indexToRemove);
+            betHistory.Remove("main_" + currentValue);
           }
         }
 
@@ -159,6 +167,7 @@ public class BJController : MonoBehaviour
           coin.transform.SetParent(ChipsParent_Transform);
           instantiated_Coins.Add(coin);
           instantiated_Value.Add(nextValue);
+          betHistory.Add("main_" + nextValue);
         }
 
         // Re-stack all coins instantly
@@ -167,8 +176,8 @@ public class BJController : MonoBehaviour
           instantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2);
         }
 
-        if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
-        
+        if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+
         // Restart the optimization process
         OptimizeCoinStack();
         return;
@@ -211,6 +220,7 @@ public class BJController : MonoBehaviour
             Destroy(multiplyinstantiated_Coins[indexToRemove]);
             multiplyinstantiated_Coins.RemoveAt(indexToRemove);
             multiplyinstantiated_Value.RemoveAt(indexToRemove);
+            betHistory.Remove("multiplier_" + currentValue);
           }
         }
 
@@ -221,6 +231,7 @@ public class BJController : MonoBehaviour
           coin.transform.SetParent(MultiplyChipsParent_Transform);
           multiplyinstantiated_Coins.Add(coin);
           multiplyinstantiated_Value.Add(nextValue);
+          betHistory.Add("multiplier_" + nextValue);
         }
 
         // Re-stack all coins instantly
@@ -229,7 +240,7 @@ public class BJController : MonoBehaviour
           multiplyinstantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2);
         }
 
-        if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
+        if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
 
         // Restart the optimization process
         MultiplyOptimizeCoinStack();
@@ -239,7 +250,7 @@ public class BJController : MonoBehaviour
   }
 
 
-  internal void ClearBetButton()
+  internal void ClearBet()
   {
     foreach (GameObject coin in instantiated_Coins)
     {
@@ -257,31 +268,66 @@ public class BJController : MonoBehaviour
     multiplyinstantiated_Coins.TrimExcess();
     multiplyinstantiated_Value.Clear();
     multiplyinstantiated_Value.TrimExcess();
-    totalBet = 0;
-    if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
+    betHistory.Clear();
+    mainBet = 0;
+    multiplierBet = 0;
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
   }
 
-  private void ClearCards()
+  internal IEnumerator ClearCards()
   {
-    for (int i = 1; i < PlayerContainer_Transform.childCount; i++)
+    List<Transform> cardTransforms = new();
+
+    PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
+    PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
+    for (int i = 2; i < PlayerContainer_Transform.childCount; i++)
     {
-      Destroy(PlayerContainer_Transform.GetChild(i).gameObject);
+      cardTransforms.Add(PlayerContainer_Transform.GetChild(i));
+      // Destroy(PlayerContainer_Transform.GetChild(i).gameObject);
     }
 
+    DealerContainer_Transform.GetChild(0).gameObject.SetActive(false);
     for (int i = 1; i < DealerContainer_Transform.childCount; i++)
     {
-      Destroy(DealerContainer_Transform.GetChild(i).gameObject);
+      cardTransforms.Add(DealerContainer_Transform.GetChild(i));
+      // Destroy(DealerContainer_Transform.GetChild(i).gameObject);
     }
 
-    for (int i = 1; i < FirstSplit_Transform.childCount; i++)
+    FirstSplit_Transform.GetChild(0).gameObject.SetActive(false);
+    FirstSplit_Transform.GetChild(1).gameObject.SetActive(false);
+    for (int i = 2; i < FirstSplit_Transform.childCount; i++)
     {
-      Destroy(FirstSplit_Transform.GetChild(i).gameObject);
+      cardTransforms.Add(FirstSplit_Transform.GetChild(i));
+      // Destroy(FirstSplit_Transform.GetChild(i).gameObject);
     }
 
-    for (int i = 1; i < SecondSplit_Transform.childCount; i++)
+    SecondSplit_Transform.GetChild(0).gameObject.SetActive(false);
+    SecondSplit_Transform.GetChild(1).gameObject.SetActive(false);
+    for (int i = 2; i < SecondSplit_Transform.childCount; i++)
     {
-      Destroy(SecondSplit_Transform.GetChild(i).gameObject);
+      cardTransforms.Add(SecondSplit_Transform.GetChild(i));
+      // Destroy(SecondSplit_Transform.GetChild(i).gameObject);
     }
+
+    List<Tween> tweens = new();
+    foreach (var cards in cardTransforms)
+    {
+      cards.GetComponent<CardScript>().OnFlipMethod(card_Back, 0);
+      cards.SetParent(EndDeck_Transform);
+      Tween t = cards.DOLocalMove(Vector3.zero, 0.3f).SetDelay(1.2f)
+      .OnComplete(() =>
+      {
+        Destroy(cards.gameObject);
+      });
+      tweens.Add(t);
+    }
+
+    if (tweens.Count > 0)
+    {
+      yield return tweens[^1].WaitForCompletion();
+    }
+    yield return new WaitForSeconds(0.5f);
+
     playerCounter = 0;
     dealerCounter = 0;
     FirstSplitplayerCounter = 0;
@@ -295,8 +341,15 @@ public class BJController : MonoBehaviour
     if (FirstSplitTotal_Text) FirstSplitTotal_Text.text = "0";
     if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = "0";
     if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(false);
+    FirstSplit_Transform.GetChild(0).gameObject.SetActive(true);
+    FirstSplit_Transform.GetChild(1).gameObject.SetActive(true);
     if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(false);
+    SecondSplit_Transform.GetChild(0).gameObject.SetActive(true);
+    SecondSplit_Transform.GetChild(1).gameObject.SetActive(true);
     if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
+    PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
+    PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
+    
     isSplit = false;
     isFirstSplit = false;
   }
@@ -324,31 +377,49 @@ public class BJController : MonoBehaviour
     isFirstSplit = true;
   }
 
-  internal void RebetButton()
-  {
-    ClearBetButton();
-    ClearCards();
-  }
-
-  internal void RebetDealButton()
-  {
-    ClearCards();
-  }
-
   internal void UndoBetButton()
   {
-    if (instantiated_Coins.Count > 0)
+    if (betHistory.Count > 0)
     {
-      Destroy(instantiated_Coins[instantiated_Coins.Count - 1]);
-      instantiated_Coins.RemoveAt(instantiated_Coins.Count - 1);
+      string lastBet = betHistory[^1];
+      betHistory.RemoveAt(betHistory.Count - 1);
+
+      string[] parts = lastBet.Split('_');
+      string betType = parts[0];
+      int amount = int.Parse(parts[1]);
+
+      if (betType == "main")
+      {
+        if (instantiated_Coins.Count > 0)
+        {
+          int indexToRemove = instantiated_Value.LastIndexOf(amount);
+          if (indexToRemove != -1)
+          {
+            Destroy(instantiated_Coins[indexToRemove]);
+            instantiated_Coins.RemoveAt(indexToRemove);
+            instantiated_Value.RemoveAt(indexToRemove);
+            mainBet -= amount;
+          }
+        }
+      }
+      else if (betType == "multiplier")
+      {
+        if (multiplyinstantiated_Coins.Count > 0)
+        {
+          int indexToRemove = multiplyinstantiated_Value.LastIndexOf(amount);
+          if (indexToRemove != -1)
+          {
+            Destroy(multiplyinstantiated_Coins[indexToRemove]);
+            multiplyinstantiated_Coins.RemoveAt(indexToRemove);
+            multiplyinstantiated_Value.RemoveAt(indexToRemove);
+            multiplierBet -= amount;
+          }
+        }
+      }
+      if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
     }
-    if (instantiated_Value.Count > 0)
-    {
-      totalBet -= instantiated_Value[instantiated_Value.Count - 1];
-      instantiated_Value.RemoveAt(instantiated_Value.Count - 1);
-    }
-    if (TotalBet_Text) TotalBet_Text.text = totalBet.ToString();
   }
+
 
   internal void OnDealerButton()
   {

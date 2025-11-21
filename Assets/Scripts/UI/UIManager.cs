@@ -267,12 +267,16 @@ public class UIManager : MonoBehaviour
   private void OnClear()
   {
     if (InitialButtons_object) InitialButtons_object.SetActive(false);
-    BJmanager.ClearBetButton();
+    BJmanager.ClearBet();
   }
 
   private void OnUndo()
   {
     BJmanager.UndoBetButton();
+    if (BJmanager.betHistory.Count == 0)
+    {
+      InitialButtons_object.SetActive(false);
+    }
   }
 
   private void OnInitialDouble()
@@ -302,12 +306,17 @@ public class UIManager : MonoBehaviour
 
   private void OnRebet()
   {
+    StartCoroutine(OnRebetCoroutine());
+  }
+
+  private IEnumerator OnRebetCoroutine()
+  {
+    if (RebetButtons_object) RebetButtons_object.SetActive(false);
+    yield return StartCoroutine(BJmanager.ClearCards());
     if (BetButton_Object) BetButton_Object.SetActive(true);
     if (ChipContainer_Object) ChipContainer_Object.SetActive(true);
     if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(true);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
-    if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    BJmanager.RebetButton();
     if (MainBet_object) MainBet_object.SetActive(true);
     if (ChipBets_Object) ChipBets_Object.SetActive(true);
     if (Player_Object) Player_Object.SetActive(false);
@@ -317,16 +326,26 @@ public class UIManager : MonoBehaviour
 
   private void OnRebetDeal()
   {
+    StartCoroutine(OnRebetDealCoroutine());
+  }
+
+  private IEnumerator OnRebetDealCoroutine()
+  {
     if (BetButton_Object) BetButton_Object.SetActive(false);
     if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
     if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    BJmanager.RebetDealButton();
+    yield return StartCoroutine(BJmanager.ClearCards());
     OnDeal();
   }
 
   private void OnRebetDouble()
+  {
+    StartCoroutine(OnRebetDoubleCoroutine());
+  }
+
+  private IEnumerator OnRebetDoubleCoroutine()
   {
     if (BetButton_Object) BetButton_Object.SetActive(false);
     if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
@@ -334,7 +353,7 @@ public class UIManager : MonoBehaviour
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
     BJmanager.DoubleBetButton();
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    BJmanager.RebetDealButton();
+    yield return StartCoroutine(BJmanager.ClearCards());
     OnDeal();
   }
 
@@ -369,7 +388,6 @@ public class UIManager : MonoBehaviour
     BJmanager.isFlippin = true;
     BJmanager.OnPlayerDealButton();
     yield return new WaitUntil(() => !BJmanager.isFlippin);
-    BJmanager.isFlippin = true;
     BJmanager.OnDealerButtonClosedCard();
     if (BJmanager.CheckMultiplier())
     {
