@@ -424,10 +424,13 @@ public class BJController : MonoBehaviour
   internal void OnDealerButton()
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
-    card.transform.localPosition = Vector2.zero;
+    card.transform.localPosition = Vector3.zero;
+    card.transform.localScale -= card.transform.localScale * 0.2f;
     card.transform.SetParent(DealerContainer_Transform);
     Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
-    card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    card.transform.DOScale(Vector3.one, 0.3f);
+    card.transform.DOLocalRotate(Vector3.zero, 0.3f);
+    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
     {
       card.GetComponent<CardScript>().OnFlipMethod(tempArr, 2);
     });
@@ -436,10 +439,13 @@ public class BJController : MonoBehaviour
   internal void OnDealerButtonClosedCard()
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
-    card.transform.localPosition = Vector2.zero;
+    card.transform.localPosition = Vector3.zero;
+    card.transform.localScale -= card.transform.localScale * 0.2f;
     card.transform.SetParent(DealerContainer_Transform);
     Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
-    card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    card.transform.DOScale(Vector3.one, 0.3f);
+    card.transform.DOLocalRotate(Vector3.zero, 0.3f);
+    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
     {
       card.GetComponent<LayoutElement>().ignoreLayout = false;
       tempdealer = card.GetComponent<CardScript>();
@@ -448,7 +454,6 @@ public class BJController : MonoBehaviour
 
   internal bool CheckMultiplier()
   {
-
     if (multiplyinstantiated_Value.Count > 0)
     {
       return true;
@@ -468,10 +473,13 @@ public class BJController : MonoBehaviour
   internal void OnPlayerDealButton()
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
-    card.transform.localPosition = Vector2.zero;
+    card.transform.localPosition = Vector3.zero;
+    card.transform.localScale -= card.transform.localScale * 0.2f;
     card.transform.SetParent(PlayerContainer_Transform);
     Sprite tempArr = SelectRandomArray(playerData[playerCounter]);
-    card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    card.transform.DOScale(Vector3.one, 0.3f);
+    card.transform.DOLocalRotate(Vector3.zero, 0.3f);
+    card.transform.DOLocalMove(Vector3.zero , 0.3f).OnComplete(delegate
     {
       card.GetComponent<CardScript>().OnFlipMethod(tempArr, 1);
     });
