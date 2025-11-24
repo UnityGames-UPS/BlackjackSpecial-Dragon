@@ -464,7 +464,7 @@ public class BJController : MonoBehaviour
     }
   }
 
-  internal void OnDealerButtonOpen()
+  internal void OnDealerOpenFlipped()
   {
     Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
     tempdealer.OnFlipMethod(tempArr, 2);

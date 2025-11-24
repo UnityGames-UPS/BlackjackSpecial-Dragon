@@ -182,7 +182,6 @@ public class UIManager : MonoBehaviour
     {
       if (RightArr_Button) RightArr_Button.interactable = true;
     }
-    Debug.Log(ChipScroller.horizontalNormalizedPosition);
     BJmanager.SelectCoin(chipCounter);
   }
 
@@ -216,7 +215,6 @@ public class UIManager : MonoBehaviour
         if (LeftArr_Button) LeftArr_Button.interactable = false;
       }
     }
-    Debug.Log(ChipScroller.horizontalNormalizedPosition);
     BJmanager.SelectCoin(chipCounter);
   }
 
@@ -392,13 +390,13 @@ public class UIManager : MonoBehaviour
     if (BJmanager.CheckMultiplier())
     {
       yield return DragonRoutine();
-      if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
-      if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = X2_Sprite;
+      // if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
+      // if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = X2_Sprite;
     }
     else
     {
-      if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
-      if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = Empty_Sprite;
+      // if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
+      // if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = Empty_Sprite;
     }
     if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
     if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
@@ -461,7 +459,7 @@ public class UIManager : MonoBehaviour
     {
       if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
       BJmanager.isFlippin = true;
-      BJmanager.OnDealerButtonOpen();
+      BJmanager.OnDealerOpenFlipped();
       yield return new WaitUntil(() => !BJmanager.isFlippin);
       for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
       {
@@ -482,7 +480,7 @@ public class UIManager : MonoBehaviour
     {
       if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
       BJmanager.isFlippin = true;
-      BJmanager.OnDealerButtonOpen();
+      BJmanager.OnDealerOpenFlipped();
       yield return new WaitUntil(() => !BJmanager.isFlippin);
       for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
       {

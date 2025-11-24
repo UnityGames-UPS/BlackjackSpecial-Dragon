@@ -21,12 +21,12 @@ public class CardScript : MonoBehaviour
   {
     csprite = cardSprite;
     Card_transform.localEulerAngles = new Vector3(0, 180, 0);
-    Card_transform.DORotate(new Vector3(0, 0, 0), 0.5f, RotateMode.FastBeyond360).OnComplete(delegate
+    Card_transform.DOLocalRotate(new Vector3(0, 0, 0), 0.3f, RotateMode.FastBeyond360).OnComplete(delegate
     {
       Card_LE.ignoreLayout = false;
       bjManager.AfterCardFlip(value);
     });
-    DOVirtual.DelayedCall(0.15f, ChangeSprite);
+    DOVirtual.DelayedCall(0.1f, ChangeSprite);
   }
 
   private void ChangeSprite()
