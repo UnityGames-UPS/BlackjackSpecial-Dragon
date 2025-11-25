@@ -15,6 +15,13 @@ public class UIManager : MonoBehaviour
   [SerializeField] private Button MainBet_Button;
   [SerializeField] private Button MultiplierBet_Button;
   [SerializeField] private Button Quit_Button;
+  [SerializeField] private Button QuitYes_Button;
+  [SerializeField] private Button QuitNo_Button;
+  [SerializeField] private Button Info_Button;
+  [SerializeField] private Button InfoClose_Button;
+  [SerializeField] private Button Settings_Button;
+  [SerializeField] private Button SettingsClose_Button;
+  [SerializeField] private Button BlackBackground_Button;
 
   [Header("Middle Buttons")]
   [SerializeField] private Button Hit_Button;
@@ -52,6 +59,11 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject FirstArrPointer_Object;
   [SerializeField] private GameObject SecondArrPointer_Object;
 
+  [SerializeField] private GameObject QuitPopup_Object;
+  [SerializeField] private GameObject InfoPopup_Object;
+  [SerializeField] private GameObject SettingsPopup_Object;
+  [SerializeField] private GameObject ReconnectPopup_Object;
+  [SerializeField] private GameObject DisconnectPopup_Object;
 
   [Header("Managers")]
   [SerializeField] private BJController BJmanager;
@@ -75,6 +87,7 @@ public class UIManager : MonoBehaviour
   [SerializeField] private ScrollRect ChipScroller;
   [SerializeField] private float chipHorizontalOffset = 0.1f;
 
+  bool isExit = false;
   int chipCounter = 0;
 
   private void Start()
@@ -124,7 +137,25 @@ public class UIManager : MonoBehaviour
     if (Split_Button) Split_Button.onClick.AddListener(OnSplit);
 
     if (Quit_Button) Quit_Button.onClick.RemoveAllListeners();
-    if (Quit_Button) Quit_Button.onClick.AddListener(CallOnExitFunction);
+    if (Quit_Button) Quit_Button.onClick.AddListener(() => OpenPopup(QuitPopup_Object));
+
+    if (Info_Button) Info_Button.onClick.RemoveAllListeners();
+    if (Info_Button) Info_Button.onClick.AddListener(() => OpenPopup(InfoPopup_Object));
+
+    if (Settings_Button) Settings_Button.onClick.RemoveAllListeners();
+    if (Settings_Button) Settings_Button.onClick.AddListener(() => OpenPopup(SettingsPopup_Object));
+
+    if (QuitYes_Button) QuitYes_Button.onClick.RemoveAllListeners();
+    if (QuitYes_Button) QuitYes_Button.onClick.AddListener(CallOnGameQuit);
+
+    if (QuitNo_Button) QuitNo_Button.onClick.RemoveAllListeners();
+    if (QuitNo_Button) QuitNo_Button.onClick.AddListener(() => ClosePopup(QuitPopup_Object));
+
+    if (InfoClose_Button) InfoClose_Button.onClick.RemoveAllListeners();
+    if (InfoClose_Button) InfoClose_Button.onClick.AddListener(() => ClosePopup(InfoPopup_Object));
+
+    if (SettingsClose_Button) SettingsClose_Button.onClick.RemoveAllListeners();
+    if (SettingsClose_Button) SettingsClose_Button.onClick.AddListener(() => ClosePopup(SettingsPopup_Object));
 
     if (Split_object) Split_object.SetActive(false);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
@@ -234,11 +265,6 @@ public class UIManager : MonoBehaviour
     float normalized = Mathf.Clamp01(itemX / scrollableWidth);
 
     ChipScroller.horizontalNormalizedPosition = normalized;
-  }
-
-  private void CallOnExitFunction()
-  {
-
   }
 
   private void OnBet(bool isMultiplier)
@@ -490,5 +516,43 @@ public class UIManager : MonoBehaviour
       }
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
     }
+  }
+
+  private void OpenPopup(GameObject popup)
+  {
+    if (DisconnectPopup_Object.activeInHierarchy)
+    {
+      return;
+    }
+    if(popup == DisconnectPopup_Object && isExit)
+    {
+      return;
+    }
+    if (BlackBackground_Button) BlackBackground_Button.gameObject.SetActive(true);
+    List<GameObject> popups = new() { QuitPopup_Object, InfoPopup_Object, SettingsPopup_Object, ReconnectPopup_Object, DisconnectPopup_Object };
+    foreach (GameObject obj in popups)
+    {
+      if (obj != popup)
+      {
+        if (obj) obj.SetActive(false);
+      }
+    }
+    if (popup) popup.SetActive(true);
+  }
+
+  private void ClosePopup(GameObject popup)
+  {
+    if (DisconnectPopup_Object.activeInHierarchy)
+    {
+      return;
+    }
+    
+    if (BlackBackground_Button) BlackBackground_Button.gameObject.SetActive(false);
+    if (popup) popup.SetActive(false); 
+  }
+
+  void CallOnGameQuit()
+  {
+    isExit = true;
   }
 }
