@@ -7,7 +7,7 @@ using DG.Tweening;
 public class CardScript : MonoBehaviour
 {
   [SerializeField] private Image Card_Image;
-  [SerializeField] private LayoutElement Card_LE;
+  [SerializeField] internal LayoutElement Card_LE;
   [SerializeField] private Transform Card_transform;
   [SerializeField] private BJController bjManager;
   private Sprite csprite = null;

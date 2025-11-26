@@ -7,6 +7,9 @@ using DG.Tweening;
 
 public class UIManager : MonoBehaviour
 {
+  [SerializeField] private SocketIOManager socket;
+
+  [SerializeField] private Transform ChipParent_Transform;
   [Header("Initial Buttons")]
   [SerializeField] private Button UndoBet_Button;
   [SerializeField] private Button Deal_Button;
@@ -47,8 +50,8 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject MiddleButtons_object;
   [SerializeField] private GameObject RebetButtons_object;
   [SerializeField] private GameObject MainBet_object;
-  [SerializeField] private GameObject Player_Object;
-  [SerializeField] private GameObject Dealer_Object;
+  [SerializeField] private GameObject PlayerCardTotal_Object;
+  [SerializeField] private GameObject DealerCardTotal_Object;
   [SerializeField] private GameObject ChipBets_Object;
   [SerializeField] private GameObject Split_object;
   [SerializeField] private GameObject MiddleDouble_object;
@@ -65,12 +68,19 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject ReconnectPopup_Object;
   [SerializeField] private GameObject DisconnectPopup_Object;
 
+  [SerializeField] private CanvasGroup MaxBetPopup_CG;
+  [SerializeField] private TMP_Text MaxBetPopup_Text;
+
   [Header("Managers")]
   [SerializeField] private BJController BJmanager;
 
   [Header("Transforms")]
   [SerializeField] private Transform ScrollParent_Transform;
   [SerializeField] private Transform Selected_Transform;
+  [SerializeField] private Transform[] PDummyPos_Transform;
+  [SerializeField] private Transform[] DDummyPos_Transform;
+  [SerializeField] private Transform[] FSDummyPos_Transform;
+  [SerializeField] private Transform[] SSDummyPos_Transform;
 
   [Header("Dragon Animation Routine")]
   [SerializeField] private GameObject DragonNormal_Object;
@@ -85,8 +95,7 @@ public class UIManager : MonoBehaviour
 
 
   [SerializeField] private ScrollRect ChipScroller;
-  [SerializeField] private float chipHorizontalOffset = 0.1f;
-
+  Sequence maxBetSequence;
   bool isExit = false;
   int chipCounter = 0;
 
@@ -94,8 +103,8 @@ public class UIManager : MonoBehaviour
   {
     if (MainBet_object) MainBet_object.SetActive(true);
     if (ChipBets_Object) ChipBets_Object.SetActive(true);
-    if (Player_Object) Player_Object.SetActive(false);
-    if (Dealer_Object) Dealer_Object.SetActive(false);
+    if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(false);
+    if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(false);
 
     if (MainBet_Button) MainBet_Button.onClick.RemoveAllListeners();
     if (MainBet_Button) MainBet_Button.onClick.AddListener(delegate { OnBet(true); });
@@ -184,6 +193,7 @@ public class UIManager : MonoBehaviour
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
     if (FirstArrPointer_Object) FirstArrPointer_Object.SetActive(false);
     if (SecondArrPointer_Object) SecondArrPointer_Object.SetActive(false);
+    MaxBetPopup_CG.alpha = 0;
   }
 
   void OnChipButtonClick(int index)
@@ -269,7 +279,6 @@ public class UIManager : MonoBehaviour
 
   private void OnBet(bool isMultiplier)
   {
-    if (InitialButtons_object) InitialButtons_object.SetActive(true);
     if (isMultiplier)
     {
       BJmanager.BetOnButton();
@@ -282,9 +291,6 @@ public class UIManager : MonoBehaviour
 
   private void OnDeal()
   {
-    if (BetButton_Object) BetButton_Object.SetActive(false);
-    if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
-    if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     StartCoroutine(OnStartDeal());
   }
 
@@ -338,13 +344,13 @@ public class UIManager : MonoBehaviour
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
     yield return StartCoroutine(BJmanager.ClearCards());
     if (BetButton_Object) BetButton_Object.SetActive(true);
-    if (ChipContainer_Object) ChipContainer_Object.SetActive(true);
-    if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(true);
+    // if (ChipContainer_Object) ChipContainer_Object.SetActive(true);
+    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(true);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
     if (MainBet_object) MainBet_object.SetActive(true);
     if (ChipBets_Object) ChipBets_Object.SetActive(true);
-    if (Player_Object) Player_Object.SetActive(false);
-    if (Dealer_Object) Dealer_Object.SetActive(false);
+    if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(false);
+    if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(false);
     if (InitialButtons_object) InitialButtons_object.SetActive(true);
   }
 
@@ -356,8 +362,8 @@ public class UIManager : MonoBehaviour
   private IEnumerator OnRebetDealCoroutine()
   {
     if (BetButton_Object) BetButton_Object.SetActive(false);
-    if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
-    if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
+    // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
+    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
     yield return StartCoroutine(BJmanager.ClearCards());
@@ -372,8 +378,8 @@ public class UIManager : MonoBehaviour
   private IEnumerator OnRebetDoubleCoroutine()
   {
     if (BetButton_Object) BetButton_Object.SetActive(false);
-    if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
-    if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
+    // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
+    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
     BJmanager.DoubleBetButton();
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
@@ -398,21 +404,25 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnStartDeal()
   {
+    if (InitialButtons_object) InitialButtons_object.SetActive(false);
+    if (BetButton_Object) BetButton_Object.SetActive(false);
+    ChipParent_Transform.localPosition = new(ChipParent_Transform.localPosition.x, ChipParent_Transform.localPosition.y - 130, ChipParent_Transform.localPosition.z);
+    // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
+    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MainBet_object) MainBet_object.SetActive(false);
     if (ChipBets_Object) ChipBets_Object.SetActive(false);
-    if (Player_Object) Player_Object.SetActive(true);
-    if (Dealer_Object) Dealer_Object.SetActive(true);
-    if (InitialButtons_object) InitialButtons_object.SetActive(false);
     BJmanager.isFlippin = true;
-    BJmanager.OnPlayerDealButton();
+    BJmanager.OnPlayerDealButton(PDummyPos_Transform[BJmanager.playerCounter].localPosition);
     yield return new WaitUntil(() => !BJmanager.isFlippin);
     BJmanager.isFlippin = true;
-    BJmanager.OnDealerButton();
+    BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
     yield return new WaitUntil(() => !BJmanager.isFlippin);
     BJmanager.isFlippin = true;
-    BJmanager.OnPlayerDealButton();
+    BJmanager.OnPlayerDealButton(PDummyPos_Transform[BJmanager.playerCounter].localPosition);
     yield return new WaitUntil(() => !BJmanager.isFlippin);
-    BJmanager.OnDealerButtonClosedCard();
+    BJmanager.OnDealerButtonClosedCard(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
+    if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(true);
+    if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(true);
     if (BJmanager.CheckMultiplier())
     {
       yield return DragonRoutine();
@@ -457,7 +467,7 @@ public class UIManager : MonoBehaviour
     {
       if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
       BJmanager.isFlippin = true;
-      BJmanager.OnPlayerDealButton();
+      BJmanager.OnPlayerDealButton(PDummyPos_Transform[BJmanager.playerCounter].localPosition);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
       if (isDouble)
       {
@@ -490,7 +500,7 @@ public class UIManager : MonoBehaviour
       for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
       {
         BJmanager.isFlippin = true;
-        BJmanager.OnDealerButton();
+        BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
         yield return new WaitUntil(() => !BJmanager.isFlippin);
       }
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
@@ -511,10 +521,55 @@ public class UIManager : MonoBehaviour
       for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
       {
         BJmanager.isFlippin = true;
-        BJmanager.OnDealerButton();
+        BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
         yield return new WaitUntil(() => !BJmanager.isFlippin);
       }
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
+    }
+  }
+
+  internal void ShowInitialButtons()
+  {
+    if (InitialButtons_object) InitialButtons_object.SetActive(true);
+  }
+
+  internal void ShowMaxBetPopup(string message)
+  {
+    MaxBetPopup_Text.text = message;
+    if (maxBetSequence != null && maxBetSequence.IsActive())
+    {
+      maxBetSequence.Kill();
+    }
+    maxBetSequence = DOTween.Sequence();
+    maxBetSequence.Append(MaxBetPopup_CG.DOFade(1, 0.3f))
+    .AppendInterval(1.5f)
+    .Append(MaxBetPopup_CG.DOFade(0, 0.3f));
+  }
+
+  internal void ReconnectionPopup()
+  {
+    OpenPopup(ReconnectPopup_Object);
+  }
+
+  internal void DisconnectionPopup()
+  {
+    OpenPopup(DisconnectPopup_Object);
+  }
+
+  internal void CheckAndClosePopup()
+  {
+    if (ReconnectPopup_Object.activeInHierarchy)
+    {
+      ClosePopup(ReconnectPopup_Object);
+    }
+    if (DisconnectPopup_Object.activeInHierarchy)
+    {
+      if (BlackBackground_Button) BlackBackground_Button.gameObject.SetActive(false);
+      List<GameObject> popups = new() { QuitPopup_Object, InfoPopup_Object, SettingsPopup_Object, ReconnectPopup_Object, DisconnectPopup_Object };
+      foreach (GameObject obj in popups)
+      {
+        if (obj) obj.SetActive(false);
+      }
     }
   }
 
@@ -524,7 +579,7 @@ public class UIManager : MonoBehaviour
     {
       return;
     }
-    if(popup == DisconnectPopup_Object && isExit)
+    if (popup == DisconnectPopup_Object && isExit)
     {
       return;
     }
@@ -546,13 +601,21 @@ public class UIManager : MonoBehaviour
     {
       return;
     }
-    
+
     if (BlackBackground_Button) BlackBackground_Button.gameObject.SetActive(false);
-    if (popup) popup.SetActive(false); 
+    List<GameObject> popups = new() { QuitPopup_Object, InfoPopup_Object, SettingsPopup_Object, ReconnectPopup_Object, DisconnectPopup_Object };
+    foreach (GameObject obj in popups)
+    {
+      if (obj != popup)
+      {
+        if (obj) obj.SetActive(false);
+      }
+    }
   }
 
   void CallOnGameQuit()
   {
     isExit = true;
+    socket.CloseGame();
   }
 }

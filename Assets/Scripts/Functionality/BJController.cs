@@ -7,6 +7,14 @@ using TMPro;
 
 public class BJController : MonoBehaviour
 {
+  [SerializeField] private SocketIOManager socket;
+  [SerializeField] private UIManager uiManager;
+
+  [SerializeField] private GameObject MainBetText_Object;
+  [SerializeField] private TMP_Text MainBetText_Text;
+  [SerializeField] private GameObject MultiplierBetText_Object;
+  [SerializeField] private TMP_Text MultiplierBetText_Text;
+
   [Header("Transforms")]
   [SerializeField] private Transform ChipsParent_Transform;
   [SerializeField] private Transform MultiplyChipsParent_Transform;
@@ -33,6 +41,7 @@ public class BJController : MonoBehaviour
   [SerializeField] private int multiplierBet = 0;
   [SerializeField] private int dealerTotal = 0;
   [SerializeField] private int playerTotal = 0;
+  private int maxBetAmount = 500;
 
   [Header("Prefabs")]
   [SerializeField] private GameObject Cards_Prefab;
@@ -62,21 +71,47 @@ public class BJController : MonoBehaviour
   private int FirsttotalValue = 0;
   private int SecondtotalValue = 0;
   private int totaldealerValue = 0;
-  private int playerCounter = 0;
-  private int FirstSplitplayerCounter = 0;
-  private int SecondSplitplayerCounter = 0;
-  private int dealerCounter = 0;
+  internal int playerCounter = 0;
+  internal int FirstSplitplayerCounter = 0;
+  internal int SecondSplitplayerCounter = 0;
+  internal int dealerCounter = 0;
 
   internal bool isFlippin = false;
   internal bool isSplit = false;
   internal bool isFirstSplit = false;
 
   private CardScript tempdealer = null;
+  private Tween balTween;
 
   private void Start()
   {
     if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(false);
     if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(false);
+    if (MultiplierBetText_Object) MultiplierBetText_Object.SetActive(false);
+    if (MainBetText_Object) MainBetText_Object.SetActive(false);
+  }
+
+  internal void HandleInit()
+  {
+    Balance_Text.text = 0.ToString("N2");
+    UpdateBalance(socket.PlayerData.balance);
+    maxBetAmount = socket.bets[^1];
+    int index = 0;
+    foreach (var chip in CoinContainers_Transform)
+    {
+      chip.GetChild(0).GetComponent<TMP_Text>().text = socket.bets[index].ToString();
+      index++;
+    }
+  }
+
+  internal void UpdateBalance(double amount)
+  {
+    double startBalance = double.Parse(Balance_Text.text);
+    balTween?.Kill();
+    balTween = DOTween.To(() => startBalance, x => startBalance = x, amount, 0.25f).OnUpdate(() =>
+    {
+      Balance_Text.text = startBalance.ToString("N2");
+    });
   }
 
   internal void SelectCoin(int counter)
@@ -92,31 +127,57 @@ public class BJController : MonoBehaviour
 
   internal void BetOnButton()
   {
+    if (mainBet + amount_array[CoinCounter] > maxBetAmount)
+    {
+      uiManager.ShowMaxBetPopup("Max Bet Reached!");
+      return;
+    }
+    uiManager.ShowInitialButtons();
     GameObject coin = Instantiate(Coins_Prefab[CoinCounter], CoinContainers_Transform[CoinCounter]);
     coin.transform.localPosition = Vector2.zero;
     coin.transform.SetParent(ChipsParent_Transform);
     coin.transform.localScale = Vector3.one;
-    coin.transform.DOLocalMove(new Vector2(0, instantiated_Coins.Count * 2), 0.5f).OnComplete(delegate { OptimizeCoinStack(); });
+    coin.transform.DOLocalMove(new Vector2(0, instantiated_Coins.Count * 2), 0.2f).OnComplete(delegate { OptimizeCoinStack(); });
     instantiated_Coins.Add(coin);
     instantiated_Value.Add(amount_array[CoinCounter]);
     mainBet += amount_array[CoinCounter];
     if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (MainBetText_Object && MainBetText_Text)
+    {
+      MainBetText_Object.SetActive(true);
+      MainBetText_Text.text = mainBet.ToString();
+    }
     betHistory.Add("main_" + amount_array[CoinCounter]);
+
     Canvas.ForceUpdateCanvases();
   }
 
   internal void MultiplierBetOnButton()
   {
-    if (mainBet == 0) return;
+    if (mainBet == 0)
+    {
+      return;
+    }
+    if (multiplierBet + amount_array[CoinCounter] > mainBet)
+    {
+      uiManager.ShowMaxBetPopup("Max Multiplier Bet Reached!");
+      return;
+    }
+    uiManager.ShowInitialButtons();
     GameObject coin = Instantiate(Coins_Prefab[CoinCounter], CoinContainers_Transform[CoinCounter]);
     coin.transform.localPosition = Vector2.zero;
     coin.transform.SetParent(MultiplyChipsParent_Transform);
     coin.transform.localScale = Vector3.one;
-    coin.transform.DOLocalMove(new Vector2(0, multiplyinstantiated_Coins.Count * 2), 0.5f).OnComplete(delegate { MultiplyOptimizeCoinStack(); });
+    coin.transform.DOLocalMove(new Vector2(0, multiplyinstantiated_Coins.Count * 2), 0.2f).OnComplete(delegate { MultiplyOptimizeCoinStack(); });
     multiplyinstantiated_Coins.Add(coin);
     multiplyinstantiated_Value.Add(amount_array[CoinCounter]);
     multiplierBet += amount_array[CoinCounter];
     if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (MultiplierBetText_Object && MultiplierBetText_Text)
+    {
+      MultiplierBetText_Object.SetActive(true);
+      MultiplierBetText_Text.text = multiplierBet.ToString();
+    }
     betHistory.Add("multiplier_" + amount_array[CoinCounter]);
     Canvas.ForceUpdateCanvases();
   }
@@ -124,7 +185,7 @@ public class BJController : MonoBehaviour
   private void OptimizeCoinStack()
   {
     // Define the coin values and their corresponding indices in the prefab array
-    int[] coinValues = { 1, 5, 10, 50, 100, 500 };
+    int[] coinValues = socket.bets.ToArray();
 
     // Loop through each coin value and optimize
     for (int i = 0; i < coinValues.Length - 1; i++)
@@ -170,25 +231,43 @@ public class BJController : MonoBehaviour
           betHistory.Add("main_" + nextValue);
         }
 
-        // Re-stack all coins instantly
-        for (int coinIndex = 0; coinIndex < instantiated_Coins.Count; coinIndex++)
-        {
-          instantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2);
-        }
-
-        if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
-
         // Restart the optimization process
         OptimizeCoinStack();
         return;
       }
     }
+
+    // Sort and re-stack after all optimizations are complete
+    var coinValuePairs = new List<KeyValuePair<int, GameObject>>();
+    for (int i = 0; i < instantiated_Value.Count; i++)
+    {
+      coinValuePairs.Add(new KeyValuePair<int, GameObject>(instantiated_Value[i], instantiated_Coins[i]));
+    }
+    coinValuePairs.Sort((pair1, pair2) => pair2.Key.CompareTo(pair1.Key));
+
+    instantiated_Coins.Clear();
+    instantiated_Value.Clear();
+
+    foreach (var pair in coinValuePairs)
+    {
+      instantiated_Value.Add(pair.Key);
+      instantiated_Coins.Add(pair.Value);
+    }
+
+    // Re-stack all coins instantly
+    for (int coinIndex = 0; coinIndex < instantiated_Coins.Count; coinIndex++)
+    {
+      instantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2.5f);
+      instantiated_Coins[coinIndex].transform.SetSiblingIndex(coinIndex);
+    }
+
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
   }
 
   private void MultiplyOptimizeCoinStack()
   {
     // Define the coin values and their corresponding indices in the prefab array
-    int[] coinValues = { 1, 5, 10, 50, 100, 500 };
+    int[] coinValues = socket.bets.ToArray();
 
     // Loop through each coin value and optimize
     for (int i = 0; i < coinValues.Length - 1; i++)
@@ -234,19 +313,37 @@ public class BJController : MonoBehaviour
           betHistory.Add("multiplier_" + nextValue);
         }
 
-        // Re-stack all coins instantly
-        for (int coinIndex = 0; coinIndex < multiplyinstantiated_Coins.Count; coinIndex++)
-        {
-          multiplyinstantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2);
-        }
-
-        if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
-
         // Restart the optimization process
         MultiplyOptimizeCoinStack();
         return;
       }
     }
+
+    // Sort and re-stack after all optimizations are complete
+    var coinValuePairs = new List<KeyValuePair<int, GameObject>>();
+    for (int i = 0; i < multiplyinstantiated_Value.Count; i++)
+    {
+      coinValuePairs.Add(new KeyValuePair<int, GameObject>(multiplyinstantiated_Value[i], multiplyinstantiated_Coins[i]));
+    }
+    coinValuePairs.Sort((pair1, pair2) => pair2.Key.CompareTo(pair1.Key));
+
+    multiplyinstantiated_Coins.Clear();
+    multiplyinstantiated_Value.Clear();
+
+    foreach (var pair in coinValuePairs)
+    {
+      multiplyinstantiated_Value.Add(pair.Key);
+      multiplyinstantiated_Coins.Add(pair.Value);
+    }
+
+    // Re-stack all coins instantly
+    for (int coinIndex = 0; coinIndex < multiplyinstantiated_Coins.Count; coinIndex++)
+    {
+      multiplyinstantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2);
+      multiplyinstantiated_Coins[coinIndex].transform.SetSiblingIndex(coinIndex);
+    }
+
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
   }
 
 
@@ -271,6 +368,16 @@ public class BJController : MonoBehaviour
     betHistory.Clear();
     mainBet = 0;
     multiplierBet = 0;
+    if (MainBetText_Object && MainBetText_Text)
+    {
+      MainBetText_Object.SetActive(false);
+      MainBetText_Text.text = "0";
+    }
+    if (MultiplierBetText_Object && MultiplierBetText_Text)
+    {
+      MultiplierBetText_Object.SetActive(false);
+      MultiplierBetText_Text.text = "0";
+    }
     if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
   }
 
@@ -349,7 +456,7 @@ public class BJController : MonoBehaviour
     if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
     PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
     PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
-    
+
     isSplit = false;
     isFirstSplit = false;
   }
@@ -399,7 +506,27 @@ public class BJController : MonoBehaviour
             instantiated_Coins.RemoveAt(indexToRemove);
             instantiated_Value.RemoveAt(indexToRemove);
             mainBet -= amount;
+            OptimizeCoinStack(); // Re-stack
           }
+        }
+        if (mainBet > 0)
+        {
+          if (MainBetText_Object && MainBetText_Text)
+          {
+            MainBetText_Text.text = mainBet.ToString();
+          }
+        }
+        else if (mainBet == 0)
+        {
+          if (MainBetText_Object && MainBetText_Text)
+          {
+            MainBetText_Object.SetActive(false);
+            MainBetText_Text.text = "0";
+          }
+        }
+        else
+        {
+          Debug.LogError("Main bet went negative!");
         }
       }
       else if (betType == "multiplier")
@@ -413,15 +540,36 @@ public class BJController : MonoBehaviour
             multiplyinstantiated_Coins.RemoveAt(indexToRemove);
             multiplyinstantiated_Value.RemoveAt(indexToRemove);
             multiplierBet -= amount;
+            MultiplyOptimizeCoinStack(); // Re-stack
           }
+        }
+        if (multiplierBet > 0)
+        {
+          if (MultiplierBetText_Object && MultiplierBetText_Text)
+          {
+            MultiplierBetText_Text.text = multiplierBet.ToString();
+          }
+        }
+        else if(multiplierBet == 0)
+        {
+          if (MultiplierBetText_Object && MultiplierBetText_Text)
+          {
+            MultiplierBetText_Object.SetActive(false);
+            MultiplierBetText_Text.text = "0";
+          }
+        }
+        else
+        {
+          Debug.LogError("Multiplier bet went negative!");
         }
       }
       if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+
     }
   }
 
 
-  internal void OnDealerButton()
+  internal void OnDealerButton(Vector3 pos)
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
     card.transform.localPosition = Vector3.zero;
@@ -430,13 +578,13 @@ public class BJController : MonoBehaviour
     Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
-    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
+    card.transform.DOLocalMove(pos, 0.3f).OnComplete(delegate
     {
       card.GetComponent<CardScript>().OnFlipMethod(tempArr, 2);
     });
   }
 
-  internal void OnDealerButtonClosedCard()
+  internal void OnDealerButtonClosedCard(Vector3 pos)
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
     card.transform.localPosition = Vector3.zero;
@@ -445,10 +593,10 @@ public class BJController : MonoBehaviour
     Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
-    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
+    card.transform.DOLocalMove(pos, 0.3f).OnComplete(delegate
     {
-      card.GetComponent<LayoutElement>().ignoreLayout = false;
       tempdealer = card.GetComponent<CardScript>();
+      tempdealer.Card_LE.ignoreLayout = false;
     });
   }
 
@@ -470,7 +618,7 @@ public class BJController : MonoBehaviour
     tempdealer.OnFlipMethod(tempArr, 2);
   }
 
-  internal void OnPlayerDealButton()
+  internal void OnPlayerDealButton(Vector3 pos)
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
     card.transform.localPosition = Vector3.zero;
@@ -479,7 +627,7 @@ public class BJController : MonoBehaviour
     Sprite tempArr = SelectRandomArray(playerData[playerCounter]);
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
-    card.transform.DOLocalMove(Vector3.zero , 0.3f).OnComplete(delegate
+    card.transform.DOLocalMove(pos, 0.3f).OnComplete(delegate
     {
       card.GetComponent<CardScript>().OnFlipMethod(tempArr, 1);
     });
