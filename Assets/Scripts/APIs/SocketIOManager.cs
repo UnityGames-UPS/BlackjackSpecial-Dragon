@@ -17,7 +17,7 @@ public class SocketIOManager : MonoBehaviour
   internal Root Data = new();
   internal Player PlayerData = new();
   internal List<int> bets = new();
-
+  internal Root ResultData = new();
   internal bool IsResultDone = false;
 
   internal string SocketURI = null;
@@ -253,7 +253,7 @@ public class SocketIOManager : MonoBehaviour
       if (json != null)
       {
         GameSocket.Emit(eventName, json);
-        Debug.Log("JSON data sent: "+ eventName + " :" + json);
+        Debug.Log("JSON data sent: " + eventName + " :" + json);
       }
       else
       {
@@ -300,14 +300,38 @@ public class SocketIOManager : MonoBehaviour
     Data = JsonConvert.DeserializeObject<Root>(jsonObject);
 
     string id = Data.id;
+    PlayerData = Data.player;
 
     switch (id.ToLower())
     {
       case "initdata":
         {
-          PlayerData = Data.player;
           bets = Data.gameData.bets;
           HandleInit();
+          break;
+        }
+      case "dealresult":
+        {
+          ResultData = Data;
+          IsResultDone = true;
+          break;
+        }
+      case "hitresult":
+        {
+          ResultData = Data;
+          IsResultDone = true;
+          break;
+        }
+      // case "standresult":
+      // {
+      //   StandResultData = Data;
+      //   IsResultDone = true;
+      //   break;
+      // }
+      case "gameresult":
+        {
+          ResultData = Data;
+          IsResultDone = true;
           break;
         }
     }
@@ -325,14 +349,33 @@ public class SocketIOManager : MonoBehaviour
   internal void RequestEvent(string eventName)
   {
     IsResultDone = false;
-    // MessageData message = new MessageData();
-    // message.type = "SPIN";
-    // message.payload.betIndex = currBet;
+    RequestClass message = new RequestClass
+    {
+      type = eventName,
+      payload = new ReqPayload
+      {
+        mainBet = bJController.mainBet,
+        sideBet = bJController.multiplierBet
+      }
+    };
 
-    // Serialize message data to JSON
-    // string json = JsonUtility.ToJson(message);
-    // SendDataWithNamespace("request", json);
+    string json = JsonUtility.ToJson(message);
+    SendDataWithNamespace("request", json);
   }
+}
+
+[Serializable]
+public class RequestClass
+{
+  public string type;
+  public ReqPayload payload;
+}
+
+[Serializable]
+public class ReqPayload
+{
+  public int mainBet;
+  public int sideBet;
 }
 
 [Serializable]
@@ -341,6 +384,7 @@ public class Player
   public double balance;
 }
 
+[Serializable]
 public class GameData
 {
   public List<int> bets;
@@ -349,6 +393,7 @@ public class GameData
   public int historyLimit;
 }
 
+[Serializable]
 public class Paytable
 {
   public int winningHand;
@@ -357,11 +402,70 @@ public class Paytable
   public int push;
 }
 
+[Serializable]
+public class Payload
+{
+  public List<PlayerHand> playerHands;
+  public DealerHand dealerHand;
+  public Card dealerUpCard;
+  public Card card;
+  public int handIndex;
+  public int handValue;
+  public bool isSoft;
+  public bool isBust;
+  public bool canSplit;
+  public bool canDouble;
+  public bool canInsure;
+  public int sideBetMultiplier;
+  public string gamePhase;
+  public List<HandResult> handResults;
+  public double totalWin;
+  public int sideBetWin;
+  public int insuranceWin;
+}
+
+[Serializable]
+public class PlayerHand
+{
+  public List<Card> cards;
+  public int value;
+  public bool isSoft;
+  public bool isBlackjack;
+}
+
+[Serializable]
+public class DealerHand
+{
+  public List<Card> cards;
+  public int value;
+  public bool isSoft;
+  public bool isBlackjack;
+}
+
+[Serializable]
+public class Card
+{
+  public string rank;
+  public string suit;
+}
+
+
+[Serializable]
 public class Root
 {
+  public bool success;
   public string id;
   public GameData gameData;
+  public Payload payload;
   public Player player;
+}
+
+[Serializable]
+public class HandResult
+{
+  public string result;
+  public double payout;
+  public int handValue;
 }
 
 [Serializable]

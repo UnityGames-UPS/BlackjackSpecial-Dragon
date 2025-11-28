@@ -7,6 +7,8 @@ using DG.Tweening;
 
 public class UIManager : MonoBehaviour
 {
+  [Header("Managers")]
+  [SerializeField] private BJController BJmanager;
   [SerializeField] private SocketIOManager socket;
 
   [SerializeField] private Transform ChipParent_Transform;
@@ -61,6 +63,8 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject ArrPointer_Object;
   [SerializeField] private GameObject FirstArrPointer_Object;
   [SerializeField] private GameObject SecondArrPointer_Object;
+  [SerializeField] private GameObject PlayerBlackjack_Object;
+  [SerializeField] private GameObject YouWin_Object;
 
   [SerializeField] private GameObject QuitPopup_Object;
   [SerializeField] private GameObject InfoPopup_Object;
@@ -68,11 +72,9 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject ReconnectPopup_Object;
   [SerializeField] private GameObject DisconnectPopup_Object;
 
-  [SerializeField] private CanvasGroup MaxBetPopup_CG;
-  [SerializeField] private TMP_Text MaxBetPopup_Text;
-
-  [Header("Managers")]
-  [SerializeField] private BJController BJmanager;
+  [SerializeField] private CanvasGroup Popup_CG;
+  [SerializeField] private TMP_Text Popup_Text;
+  [SerializeField] private TMP_Text YouWin_Text;
 
   [Header("Transforms")]
   [SerializeField] private Transform ScrollParent_Transform;
@@ -95,7 +97,7 @@ public class UIManager : MonoBehaviour
 
 
   [SerializeField] private ScrollRect ChipScroller;
-  Sequence maxBetSequence;
+  Sequence PopupSeq;
   bool isExit = false;
   int chipCounter = 0;
 
@@ -193,7 +195,7 @@ public class UIManager : MonoBehaviour
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
     if (FirstArrPointer_Object) FirstArrPointer_Object.SetActive(false);
     if (SecondArrPointer_Object) SecondArrPointer_Object.SetActive(false);
-    MaxBetPopup_CG.alpha = 0;
+    Popup_CG.alpha = 0;
   }
 
   void OnChipButtonClick(int index)
@@ -311,26 +313,23 @@ public class UIManager : MonoBehaviour
 
   private void OnInitialDouble()
   {
-    BJmanager.DoubleBetButton();
+    BJmanager.TryDoubleBet();
   }
 
   private void OnHit(bool isDouble = false)
   {
-    if (Split_object) Split_object.SetActive(false);
-    if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
     StartCoroutine(HitDealButton(isDouble));
   }
 
   private void OnStand()
   {
-    if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
     StartCoroutine(DealerFinalButton());
   }
 
   private void OnDoubleAndStand()
   {
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
-    BJmanager.DoubleBetButton();
+    BJmanager.TryDoubleBet();
     OnHit(true);
   }
 
@@ -341,6 +340,7 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnRebetCoroutine()
   {
+    ResetUI();
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
     yield return StartCoroutine(BJmanager.ClearCards());
     if (BetButton_Object) BetButton_Object.SetActive(true);
@@ -361,6 +361,7 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnRebetDealCoroutine()
   {
+    ResetUI();
     if (BetButton_Object) BetButton_Object.SetActive(false);
     // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
     // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
@@ -377,13 +378,14 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnRebetDoubleCoroutine()
   {
+    ResetUI();
+    if (RebetButtons_object) RebetButtons_object.SetActive(false);
     if (BetButton_Object) BetButton_Object.SetActive(false);
+    yield return BJmanager.ClearCards();
     // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
     // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
-    BJmanager.DoubleBetButton();
-    if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    yield return StartCoroutine(BJmanager.ClearCards());
+    BJmanager.TryDoubleBet();
     OnDeal();
   }
 
@@ -406,23 +408,35 @@ public class UIManager : MonoBehaviour
   {
     if (InitialButtons_object) InitialButtons_object.SetActive(false);
     if (BetButton_Object) BetButton_Object.SetActive(false);
-    ChipParent_Transform.localPosition = new(ChipParent_Transform.localPosition.x, ChipParent_Transform.localPosition.y - 130, ChipParent_Transform.localPosition.z);
-    // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
-    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MainBet_object) MainBet_object.SetActive(false);
     if (ChipBets_Object) ChipBets_Object.SetActive(false);
+
+    ChipParent_Transform.localPosition = new(ChipParent_Transform.localPosition.x, ChipParent_Transform.localPosition.y - 132, ChipParent_Transform.localPosition.z);
+
+    socket.RequestEvent("DEAL");
+    yield return new WaitUntil(() => socket.IsResultDone);
+    BJmanager.UpdateBalance(socket.ResultData.player.balance);
+
     BJmanager.isFlippin = true;
-    BJmanager.OnPlayerDealButton(PDummyPos_Transform[BJmanager.playerCounter].localPosition);
+    BJmanager.OnPlayerDealButton(socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
     yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+    Card dealerCard = socket.ResultData.id.ToLower().Contains("gameresult") ? socket.ResultData.payload.dealerHand.cards[0] : socket.ResultData.payload.dealerUpCard;
     BJmanager.isFlippin = true;
-    BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
+    BJmanager.OnDealerButton(dealerCard);
     yield return new WaitUntil(() => !BJmanager.isFlippin);
+
     BJmanager.isFlippin = true;
-    BJmanager.OnPlayerDealButton(PDummyPos_Transform[BJmanager.playerCounter].localPosition);
+    BJmanager.OnPlayerDealButton(socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
     yield return new WaitUntil(() => !BJmanager.isFlippin);
-    BJmanager.OnDealerButtonClosedCard(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
+
+    BJmanager.isFlippin = true;
+    BJmanager.OnDealerButtonClosedCard();
+    yield return new WaitUntil(() => !BJmanager.isFlippin);
+
     if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(true);
     if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(true);
+
     if (BJmanager.CheckMultiplier())
     {
       yield return DragonRoutine();
@@ -434,11 +448,152 @@ public class UIManager : MonoBehaviour
       // if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
       // if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = Empty_Sprite;
     }
-    if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
-    if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-    if (BJmanager.playerData[0] == BJmanager.playerData[1])
+
+    string gameState = socket.ResultData.payload.gamePhase.ToLower();
+
+    if (gameState.Contains("player-turn"))
     {
-      if (Split_object) Split_object.SetActive(true);
+      if (socket.ResultData.payload.playerHands[0].isBlackjack)
+      {
+        if (PlayerBlackjack_Object) PlayerBlackjack_Object.SetActive(true);
+        if (socket.ResultData.payload.dealerUpCard.rank == "A")
+        {
+          OnStand();
+        }
+        // else
+        // {
+        //   YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+        //   if (YouWin_Object) YouWin_Object.SetActive(true);
+        //   BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+        // }
+      }
+      else
+      {
+        if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
+        if (Split_object) Split_object.SetActive(socket.ResultData.payload.canSplit);
+        if (DoubleShow_Button) DoubleShow_Button.gameObject.SetActive(socket.ResultData.payload.canDouble);
+        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+      }
+    }
+    else if (gameState.Contains("completed"))
+    {
+      if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("blackjack"))
+      {
+        if (PlayerBlackjack_Object) PlayerBlackjack_Object.SetActive(true);
+      }
+      YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+      if (YouWin_Object) YouWin_Object.SetActive(true);
+      BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      if (RebetButtons_object) RebetButtons_object.SetActive(true);
+    }
+  }
+
+  private IEnumerator HitDealButton(bool isDouble)
+  {
+    if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
+    if (Split_object && Split_object.activeInHierarchy) Split_object.SetActive(false);
+    if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
+    if (!BJmanager.isSplit)
+    {
+      socket.RequestEvent("HIT");
+      yield return new WaitUntil(() => socket.IsResultDone);
+      BJmanager.isFlippin = true;
+      BJmanager.OnPlayerDealButton(socket.ResultData.payload.card);
+      yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+      if (socket.ResultData.payload.isBust)
+      {
+        BJmanager.PlayerBust();
+        RebetButtons_object.SetActive(true);
+        yield break;
+      }
+
+      if (isDouble)
+      {
+        OnStand();
+      }
+      else
+      {
+        if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
+        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+      }
+    }
+    else
+    {
+      BJmanager.isFlippin = true;
+      BJmanager.OnSplitDealButton();
+      yield return new WaitUntil(() => !BJmanager.isFlippin);
+      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+    }
+  }
+
+  private IEnumerator DealerFinalButton()
+  {
+    if (ArrPointer_Object && ArrPointer_Object.activeInHierarchy) ArrPointer_Object.SetActive(false);
+    if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
+    if (!BJmanager.isSplit)
+    {
+      socket.RequestEvent("STAND");
+      yield return new WaitUntil(() => socket.IsResultDone);
+      BJmanager.isFlippin = true;
+      BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+      yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+      if (BJmanager.useTestData)
+      {
+        for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
+        {
+          BJmanager.isFlippin = true;
+          BJmanager.OnDealerButton();
+          yield return new WaitUntil(() => !BJmanager.isFlippin);
+        }
+      }
+      else
+      {
+        if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+        {
+          for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+          {
+            BJmanager.isFlippin = true;
+            BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+            yield return new WaitUntil(() => !BJmanager.isFlippin);
+          }
+        }
+      }
+
+      if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("push"))
+      {
+        BJmanager.PlayerPush();
+        BJmanager.UpdateWinnings(socket.ResultData.payload.handResults[0].payout);
+      }
+
+      if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("win"))
+      {
+        YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+        if (YouWin_Object) YouWin_Object.SetActive(true);
+        BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      }
+
+      if (RebetButtons_object) RebetButtons_object.SetActive(true);
+    }
+    else if (BJmanager.isFirstSplit)
+    {
+      BJmanager.SplitStandButton();
+      yield return new WaitUntil(() => !BJmanager.isFirstSplit);
+      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+    }
+    else
+    {
+      BJmanager.isFlippin = true;
+      // BJmanager.OnDealerOpenFlipped();
+      yield return new WaitUntil(() => !BJmanager.isFlippin);
+      for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
+      {
+        BJmanager.isFlippin = true;
+        // BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
+        // yield return new WaitUntil(() => !BJmanager.isFlippin);
+      }
+      if (RebetButtons_object) RebetButtons_object.SetActive(true);
     }
   }
 
@@ -461,73 +616,6 @@ public class UIManager : MonoBehaviour
     yield return new WaitForSeconds(1f);
   }
 
-  private IEnumerator HitDealButton(bool isDouble)
-  {
-    if (!BJmanager.isSplit)
-    {
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
-      BJmanager.isFlippin = true;
-      BJmanager.OnPlayerDealButton(PDummyPos_Transform[BJmanager.playerCounter].localPosition);
-      yield return new WaitUntil(() => !BJmanager.isFlippin);
-      if (isDouble)
-      {
-        OnStand();
-      }
-      else
-      {
-        if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
-        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-      }
-    }
-    else
-    {
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
-      BJmanager.isFlippin = true;
-      BJmanager.OnSplitDealButton();
-      yield return new WaitUntil(() => !BJmanager.isFlippin);
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-    }
-  }
-
-  private IEnumerator DealerFinalButton()
-  {
-    if (!BJmanager.isSplit)
-    {
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
-      BJmanager.isFlippin = true;
-      BJmanager.OnDealerOpenFlipped();
-      yield return new WaitUntil(() => !BJmanager.isFlippin);
-      for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
-      {
-        BJmanager.isFlippin = true;
-        BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
-        yield return new WaitUntil(() => !BJmanager.isFlippin);
-      }
-      if (RebetButtons_object) RebetButtons_object.SetActive(true);
-    }
-    else if (BJmanager.isFirstSplit)
-    {
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
-      BJmanager.SplitStandButton();
-      yield return new WaitUntil(() => !BJmanager.isFirstSplit);
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-    }
-    else
-    {
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
-      BJmanager.isFlippin = true;
-      BJmanager.OnDealerOpenFlipped();
-      yield return new WaitUntil(() => !BJmanager.isFlippin);
-      for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
-      {
-        BJmanager.isFlippin = true;
-        BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
-        yield return new WaitUntil(() => !BJmanager.isFlippin);
-      }
-      if (RebetButtons_object) RebetButtons_object.SetActive(true);
-    }
-  }
-
   internal void ShowInitialButtons()
   {
     if (InitialButtons_object) InitialButtons_object.SetActive(true);
@@ -535,15 +623,15 @@ public class UIManager : MonoBehaviour
 
   internal void ShowMaxBetPopup(string message)
   {
-    MaxBetPopup_Text.text = message;
-    if (maxBetSequence != null && maxBetSequence.IsActive())
+    Popup_Text.text = message;
+    if (PopupSeq != null && PopupSeq.IsActive())
     {
-      maxBetSequence.Kill();
+      PopupSeq.Kill();
     }
-    maxBetSequence = DOTween.Sequence();
-    maxBetSequence.Append(MaxBetPopup_CG.DOFade(1, 0.3f))
+    PopupSeq = DOTween.Sequence();
+    PopupSeq.Append(Popup_CG.DOFade(1, 0.3f))
     .AppendInterval(1.5f)
-    .Append(MaxBetPopup_CG.DOFade(0, 0.3f));
+    .Append(Popup_CG.DOFade(0, 0.3f));
   }
 
   internal void ReconnectionPopup()
@@ -571,6 +659,14 @@ public class UIManager : MonoBehaviour
         if (obj) obj.SetActive(false);
       }
     }
+  }
+
+  private void ResetUI()
+  {
+    if (PlayerBlackjack_Object.activeInHierarchy) PlayerBlackjack_Object.SetActive(false);
+    if (YouWin_Object.activeInHierarchy) YouWin_Object.SetActive(false);
+    BJmanager.UpdateWinnings(0);
+    ChipParent_Transform.localPosition = new(ChipParent_Transform.localPosition.x, ChipParent_Transform.localPosition.y + 132, ChipParent_Transform.localPosition.z);
   }
 
   private void OpenPopup(GameObject popup)

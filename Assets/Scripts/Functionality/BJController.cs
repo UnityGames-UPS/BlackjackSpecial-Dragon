@@ -37,8 +37,8 @@ public class BJController : MonoBehaviour
   [Header("Integers")]
   [SerializeField] private int CoinCounter = 0;
   [SerializeField] private int[] amount_array;
-  [SerializeField] private int mainBet = 0;
-  [SerializeField] private int multiplierBet = 0;
+  [SerializeField] internal int mainBet = 0;
+  [SerializeField] internal int multiplierBet = 0;
   [SerializeField] private int dealerTotal = 0;
   [SerializeField] private int playerTotal = 0;
   private int maxBetAmount = 500;
@@ -56,16 +56,21 @@ public class BJController : MonoBehaviour
   [Header("Texts")]
   [SerializeField] private TMP_Text TotalBet_Text;
   [SerializeField] private TMP_Text Balance_Text;
+  [SerializeField] private TMP_Text Winnings_Text;
   [SerializeField] private TMP_Text PlayerTotal_Text;
   [SerializeField] private TMP_Text DealerTotal_Text;
   [SerializeField] private TMP_Text FirstSplitTotal_Text;
   [SerializeField] private TMP_Text SecondSplitTotal_Text;
 
   [Header("Test Data")]
+  [SerializeField] internal bool useTestData = false;
   [SerializeField] internal List<int> playerData;
   [SerializeField] internal List<int> firstplayerData;
   [SerializeField] internal List<int> secondplayerData;
   [SerializeField] internal List<int> dealerData;
+
+  internal List<Card> playerCards = new();
+  internal List<Card> dealerCards = new();
 
   private int totalValue = 0;
   private int FirsttotalValue = 0;
@@ -82,6 +87,7 @@ public class BJController : MonoBehaviour
 
   private CardScript tempdealer = null;
   private Tween balTween;
+  private Tween winTween;
 
   private void Start()
   {
@@ -95,6 +101,8 @@ public class BJController : MonoBehaviour
   {
     Balance_Text.text = 0.ToString("N2");
     UpdateBalance(socket.PlayerData.balance);
+    Winnings_Text.text = 0.ToString("N2");
+    UpdateWinnings(0);
     maxBetAmount = socket.bets[^1];
     int index = 0;
     foreach (var chip in CoinContainers_Transform)
@@ -102,6 +110,7 @@ public class BJController : MonoBehaviour
       chip.GetChild(0).GetComponent<TMP_Text>().text = socket.bets[index].ToString();
       index++;
     }
+    LowBalCheck(socket.bets[0]);
   }
 
   internal void UpdateBalance(double amount)
@@ -114,15 +123,67 @@ public class BJController : MonoBehaviour
     });
   }
 
+  internal void UpdateWinnings(double amount)
+  {
+    double startWin = 0;
+    winTween?.Kill();
+    winTween = DOTween.To(() => startWin, x => startWin = x, amount, 0.25f).OnUpdate(() =>
+    {
+      Winnings_Text.text = startWin.ToString("N2");
+    });
+  }
+
   internal void SelectCoin(int counter)
   {
     CoinCounter = counter;
   }
 
-  internal void DoubleBetButton()
+  internal bool TryDoubleBet()
   {
-    mainBet *= 2;
-    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    int newMainBet = mainBet * 2;
+    int newSideBet = multiplierBet * 2;
+
+    if (newMainBet > maxBetAmount)
+    {
+      uiManager.ShowMaxBetPopup("Max Main Bet Reached!");
+      return false;
+    }
+
+    if (newSideBet > newMainBet)
+    {
+      uiManager.ShowMaxBetPopup("Side Bet Cannot Exceed Main Bet!");
+      return false;
+    }
+
+    int amountToAddMain = mainBet; // need to add the SAME amount again
+    AddDoubleChips(amountToAddMain, false);
+
+    mainBet = newMainBet;
+
+    if (MainBetText_Object && MainBetText_Text)
+    {
+      MainBetText_Object.SetActive(true);
+      MainBetText_Text.text = mainBet.ToString();
+    }
+
+    if (multiplierBet > 0)
+    {
+      int amountToAddSide = multiplierBet;
+      AddDoubleChips(amountToAddSide, true);
+
+      multiplierBet = newSideBet;
+
+      if (MultiplierBetText_Object && MultiplierBetText_Text)
+      {
+        MultiplierBetText_Object.SetActive(true);
+        MultiplierBetText_Text.text = multiplierBet.ToString();
+      }
+    }
+
+    // Update Total Bet UI
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
+
+    return true;
   }
 
   internal void BetOnButton()
@@ -130,6 +191,10 @@ public class BJController : MonoBehaviour
     if (mainBet + amount_array[CoinCounter] > maxBetAmount)
     {
       uiManager.ShowMaxBetPopup("Max Bet Reached!");
+      return;
+    }
+    if (LowBalCheck(amount_array[CoinCounter]))
+    {
       return;
     }
     uiManager.ShowInitialButtons();
@@ -141,15 +206,13 @@ public class BJController : MonoBehaviour
     instantiated_Coins.Add(coin);
     instantiated_Value.Add(amount_array[CoinCounter]);
     mainBet += amount_array[CoinCounter];
-    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
     if (MainBetText_Object && MainBetText_Text)
     {
       MainBetText_Object.SetActive(true);
       MainBetText_Text.text = mainBet.ToString();
     }
     betHistory.Add("main_" + amount_array[CoinCounter]);
-
-    Canvas.ForceUpdateCanvases();
   }
 
   internal void MultiplierBetOnButton()
@@ -163,6 +226,10 @@ public class BJController : MonoBehaviour
       uiManager.ShowMaxBetPopup("Max Multiplier Bet Reached!");
       return;
     }
+    if (LowBalCheck(amount_array[CoinCounter]))
+    {
+      return;
+    }
     uiManager.ShowInitialButtons();
     GameObject coin = Instantiate(Coins_Prefab[CoinCounter], CoinContainers_Transform[CoinCounter]);
     coin.transform.localPosition = Vector2.zero;
@@ -172,22 +239,19 @@ public class BJController : MonoBehaviour
     multiplyinstantiated_Coins.Add(coin);
     multiplyinstantiated_Value.Add(amount_array[CoinCounter]);
     multiplierBet += amount_array[CoinCounter];
-    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
     if (MultiplierBetText_Object && MultiplierBetText_Text)
     {
       MultiplierBetText_Object.SetActive(true);
       MultiplierBetText_Text.text = multiplierBet.ToString();
     }
     betHistory.Add("multiplier_" + amount_array[CoinCounter]);
-    Canvas.ForceUpdateCanvases();
   }
 
   private void OptimizeCoinStack()
   {
-    // Define the coin values and their corresponding indices in the prefab array
     int[] coinValues = socket.bets.ToArray();
 
-    // Loop through each coin value and optimize
     for (int i = 0; i < coinValues.Length - 1; i++)
     {
       int currentValue = coinValues[i];
@@ -208,7 +272,6 @@ public class BJController : MonoBehaviour
         int numNewCoins = currentCount / ratio;
         int numToRemove = numNewCoins * ratio;
 
-        // Destroy the old coins
         for (int k = 0; k < numToRemove; k++)
         {
           int indexToRemove = instantiated_Value.LastIndexOf(currentValue);
@@ -221,7 +284,6 @@ public class BJController : MonoBehaviour
           }
         }
 
-        // Instantiate the new coins
         for (int k = 0; k < numNewCoins; k++)
         {
           GameObject coin = Instantiate(Coins_Prefab[i + 1], CoinContainers_Transform[i + 1]);
@@ -231,13 +293,11 @@ public class BJController : MonoBehaviour
           betHistory.Add("main_" + nextValue);
         }
 
-        // Restart the optimization process
         OptimizeCoinStack();
         return;
       }
     }
 
-    // Sort and re-stack after all optimizations are complete
     var coinValuePairs = new List<KeyValuePair<int, GameObject>>();
     for (int i = 0; i < instantiated_Value.Count; i++)
     {
@@ -254,22 +314,19 @@ public class BJController : MonoBehaviour
       instantiated_Coins.Add(pair.Value);
     }
 
-    // Re-stack all coins instantly
     for (int coinIndex = 0; coinIndex < instantiated_Coins.Count; coinIndex++)
     {
       instantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2.5f);
       instantiated_Coins[coinIndex].transform.SetSiblingIndex(coinIndex);
     }
 
-    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
   }
 
   private void MultiplyOptimizeCoinStack()
   {
-    // Define the coin values and their corresponding indices in the prefab array
     int[] coinValues = socket.bets.ToArray();
 
-    // Loop through each coin value and optimize
     for (int i = 0; i < coinValues.Length - 1; i++)
     {
       int currentValue = coinValues[i];
@@ -290,7 +347,6 @@ public class BJController : MonoBehaviour
         int numNewCoins = currentCount / ratio;
         int numToRemove = numNewCoins * ratio;
 
-        // Destroy the old coins
         for (int k = 0; k < numToRemove; k++)
         {
           int indexToRemove = multiplyinstantiated_Value.LastIndexOf(currentValue);
@@ -303,7 +359,6 @@ public class BJController : MonoBehaviour
           }
         }
 
-        // Instantiate the new coins
         for (int k = 0; k < numNewCoins; k++)
         {
           GameObject coin = Instantiate(Coins_Prefab[i + 1], CoinContainers_Transform[i + 1]);
@@ -313,13 +368,11 @@ public class BJController : MonoBehaviour
           betHistory.Add("multiplier_" + nextValue);
         }
 
-        // Restart the optimization process
         MultiplyOptimizeCoinStack();
         return;
       }
     }
 
-    // Sort and re-stack after all optimizations are complete
     var coinValuePairs = new List<KeyValuePair<int, GameObject>>();
     for (int i = 0; i < multiplyinstantiated_Value.Count; i++)
     {
@@ -336,14 +389,13 @@ public class BJController : MonoBehaviour
       multiplyinstantiated_Coins.Add(pair.Value);
     }
 
-    // Re-stack all coins instantly
     for (int coinIndex = 0; coinIndex < multiplyinstantiated_Coins.Count; coinIndex++)
     {
       multiplyinstantiated_Coins[coinIndex].transform.localPosition = new Vector2(0, coinIndex * 2);
       multiplyinstantiated_Coins[coinIndex].transform.SetSiblingIndex(coinIndex);
     }
 
-    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
   }
 
 
@@ -378,55 +430,70 @@ public class BJController : MonoBehaviour
       MultiplierBetText_Object.SetActive(false);
       MultiplierBetText_Text.text = "0";
     }
-    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+    if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
   }
 
   internal IEnumerator ClearCards()
   {
     List<Transform> cardTransforms = new();
+    int dealerFlippedIndex = -1;
 
-    PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
-    PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
-    for (int i = 2; i < PlayerContainer_Transform.childCount; i++)
+    // PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
+    // PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
+    for (int i = 0; i < PlayerContainer_Transform.childCount; i++)
     {
       cardTransforms.Add(PlayerContainer_Transform.GetChild(i));
       // Destroy(PlayerContainer_Transform.GetChild(i).gameObject);
     }
 
-    DealerContainer_Transform.GetChild(0).gameObject.SetActive(false);
-    for (int i = 1; i < DealerContainer_Transform.childCount; i++)
+    // DealerContainer_Transform.GetChild(0).gameObject.SetActive(false);
+    for (int i = 0; i < DealerContainer_Transform.childCount; i++)
     {
       cardTransforms.Add(DealerContainer_Transform.GetChild(i));
+      if (DealerContainer_Transform.GetChild(i).GetComponent<Image>().sprite == card_Back)
+      {
+        dealerFlippedIndex = cardTransforms.LastIndexOf(DealerContainer_Transform.GetChild(i));
+      }
       // Destroy(DealerContainer_Transform.GetChild(i).gameObject);
     }
 
-    FirstSplit_Transform.GetChild(0).gameObject.SetActive(false);
-    FirstSplit_Transform.GetChild(1).gameObject.SetActive(false);
-    for (int i = 2; i < FirstSplit_Transform.childCount; i++)
+    // FirstSplit_Transform.GetChild(0).gameObject.SetActive(false);
+    // FirstSplit_Transform.GetChild(1).gameObject.SetActive(false);
+    for (int i = 0; i < FirstSplit_Transform.childCount; i++)
     {
       cardTransforms.Add(FirstSplit_Transform.GetChild(i));
       // Destroy(FirstSplit_Transform.GetChild(i).gameObject);
     }
 
-    SecondSplit_Transform.GetChild(0).gameObject.SetActive(false);
-    SecondSplit_Transform.GetChild(1).gameObject.SetActive(false);
-    for (int i = 2; i < SecondSplit_Transform.childCount; i++)
+    // SecondSplit_Transform.GetChild(0).gameObject.SetActive(false);
+    // SecondSplit_Transform.GetChild(1).gameObject.SetActive(false);
+    for (int i = 0; i < SecondSplit_Transform.childCount; i++)
     {
       cardTransforms.Add(SecondSplit_Transform.GetChild(i));
       // Destroy(SecondSplit_Transform.GetChild(i).gameObject);
     }
 
     List<Tween> tweens = new();
+    int index = 0;
     foreach (var cards in cardTransforms)
     {
-      cards.GetComponent<CardScript>().OnFlipMethod(card_Back, 0);
-      cards.SetParent(EndDeck_Transform);
-      Tween t = cards.DOLocalMove(Vector3.zero, 0.3f).SetDelay(1.2f)
+      CardScript script = cards.GetComponent<CardScript>();
+      if (index != dealerFlippedIndex)
+        script.OnFlipMethod(card_Back, 0, null);
+
+      cards.DOScale(0.7f, 0.3f).SetDelay(0.5f);
+      cards.GetComponent<Image>().DOFade(0, 0.3f).SetDelay(0.5f);
+      cards.DORotate(EndDeck_Transform.eulerAngles, 0.3f).SetDelay(0.5f);
+      Tween t = cards.DOMove(EndDeck_Transform.position, 0.3f).SetDelay(0.5f).OnStart(() =>
+      {
+        script.layoutElement.ignoreLayout = true;
+      })
       .OnComplete(() =>
       {
         Destroy(cards.gameObject);
       });
       tweens.Add(t);
+      index++;
     }
 
     if (tweens.Count > 0)
@@ -435,6 +502,8 @@ public class BJController : MonoBehaviour
     }
     yield return new WaitForSeconds(0.5f);
 
+    playerCards.Clear();
+    dealerCards.Clear();
     playerCounter = 0;
     dealerCounter = 0;
     FirstSplitplayerCounter = 0;
@@ -447,15 +516,15 @@ public class BJController : MonoBehaviour
     if (DealerTotal_Text) DealerTotal_Text.text = "0";
     if (FirstSplitTotal_Text) FirstSplitTotal_Text.text = "0";
     if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = "0";
-    if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(false);
-    FirstSplit_Transform.GetChild(0).gameObject.SetActive(true);
-    FirstSplit_Transform.GetChild(1).gameObject.SetActive(true);
-    if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(false);
-    SecondSplit_Transform.GetChild(0).gameObject.SetActive(true);
-    SecondSplit_Transform.GetChild(1).gameObject.SetActive(true);
-    if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
-    PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
-    PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
+    // if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(false);
+    // FirstSplit_Transform.GetChild(0).gameObject.SetActive(true);
+    // FirstSplit_Transform.GetChild(1).gameObject.SetActive(true);
+    // if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(false);
+    // SecondSplit_Transform.GetChild(0).gameObject.SetActive(true);
+    // SecondSplit_Transform.GetChild(1).gameObject.SetActive(true);
+    // if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
+    // PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
+    // PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
 
     isSplit = false;
     isFirstSplit = false;
@@ -479,7 +548,7 @@ public class BJController : MonoBehaviour
     if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = SplitPlayerNumberValue(secondplayerData[SecondSplitplayerCounter], false);
     FirstSplitplayerCounter++;
     SecondSplitplayerCounter++;
-    if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
+    // if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
     isSplit = true;
     isFirstSplit = true;
   }
@@ -550,7 +619,7 @@ public class BJController : MonoBehaviour
             MultiplierBetText_Text.text = multiplierBet.ToString();
           }
         }
-        else if(multiplierBet == 0)
+        else if (multiplierBet == 0)
         {
           if (MultiplierBetText_Object && MultiplierBetText_Text)
           {
@@ -563,40 +632,47 @@ public class BJController : MonoBehaviour
           Debug.LogError("Multiplier bet went negative!");
         }
       }
-      if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString();
+      if (TotalBet_Text) TotalBet_Text.text = (mainBet + multiplierBet).ToString("N2");
 
     }
   }
 
 
-  internal void OnDealerButton(Vector3 pos)
+  internal void OnDealerButton(Card cardData = null)
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
     card.transform.localPosition = Vector3.zero;
     card.transform.localScale -= card.transform.localScale * 0.2f;
     card.transform.SetParent(DealerContainer_Transform);
-    Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
+
+    Sprite S = null;
+    if (cardData == null)
+      S = SelectRandomArray(playerData[playerCounter]);
+    else
+      S = SelectSprite(cardData);
+
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
-    card.transform.DOLocalMove(pos, 0.3f).OnComplete(delegate
+    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
     {
-      card.GetComponent<CardScript>().OnFlipMethod(tempArr, 2);
+      card.GetComponent<CardScript>().OnFlipMethod(S, 2, cardData);
     });
   }
 
-  internal void OnDealerButtonClosedCard(Vector3 pos)
+  internal void OnDealerButtonClosedCard()
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
     card.transform.localPosition = Vector3.zero;
     card.transform.localScale -= card.transform.localScale * 0.2f;
     card.transform.SetParent(DealerContainer_Transform);
-    Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
-    card.transform.DOLocalMove(pos, 0.3f).OnComplete(delegate
+    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
     {
-      tempdealer = card.GetComponent<CardScript>();
-      tempdealer.Card_LE.ignoreLayout = false;
+      CardScript cardScript = card.GetComponent<CardScript>();
+      tempdealer = cardScript;
+      cardScript.layoutElement.ignoreLayout = false;
+      isFlippin = false;
     });
   }
 
@@ -612,24 +688,39 @@ public class BJController : MonoBehaviour
     }
   }
 
-  internal void OnDealerOpenFlipped()
+  internal void OnDealerOpenFlipped(Card CardData)
   {
-    Sprite tempArr = SelectRandomArray(dealerData[dealerCounter]);
-    tempdealer.OnFlipMethod(tempArr, 2);
+    Sprite S = null;
+    if (useTestData)
+    {
+      S = SelectRandomArray(dealerData[dealerCounter]);
+    }
+    else
+    {
+      S = SelectSprite(CardData);
+    }
+    tempdealer.OnFlipMethod(S, 2, CardData);
   }
 
-  internal void OnPlayerDealButton(Vector3 pos)
+  internal void OnPlayerDealButton(Card CardData)
   {
     GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
     card.transform.localPosition = Vector3.zero;
     card.transform.localScale -= card.transform.localScale * 0.2f;
+
     card.transform.SetParent(PlayerContainer_Transform);
-    Sprite tempArr = SelectRandomArray(playerData[playerCounter]);
+
+    Sprite S = null;
+    if (useTestData)
+      S = SelectRandomArray(playerData[playerCounter]);
+    else
+      S = SelectSprite(CardData);
+
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
-    card.transform.DOLocalMove(pos, 0.3f).OnComplete(delegate
+    card.transform.DOLocalMove(Vector3.zero, 0.3f).OnComplete(delegate
     {
-      card.GetComponent<CardScript>().OnFlipMethod(tempArr, 1);
+      card.GetComponent<CardScript>().OnFlipMethod(S, 1, CardData);
     });
   }
 
@@ -666,16 +757,32 @@ public class BJController : MonoBehaviour
     }
   }
 
-  internal void AfterCardFlip(int value)
+  internal void AfterCardFlip(int value, Card card)
   {
     switch (value)
     {
       case 1:
-        if (PlayerTotal_Text) PlayerTotal_Text.text = PlayerNumberValue(playerData[playerCounter]);
+        if (useTestData)
+        {
+          if (PlayerTotal_Text) PlayerTotal_Text.text = PlayerNumberTestValue(playerData[playerCounter]);
+        }
+        else
+        {
+          if (card != null) playerCards.Add(card);
+          if (PlayerTotal_Text) PlayerTotal_Text.text = CalculateHandValue(playerCards);
+        }
         playerCounter++;
         break;
       case 2:
-        if (DealerTotal_Text) DealerTotal_Text.text = DealerNumberValue(dealerData[dealerCounter]);
+        if (useTestData)
+        {
+          if (DealerTotal_Text) DealerTotal_Text.text = DealerNumberTestValue(dealerData[dealerCounter]);
+        }
+        else
+        {
+          if (card != null) dealerCards.Add(card);
+          if (DealerTotal_Text) DealerTotal_Text.text = CalculateHandValue(dealerCards);
+        }
         dealerCounter++;
         break;
       case 3:
@@ -690,7 +797,96 @@ public class BJController : MonoBehaviour
     isFlippin = false;
   }
 
-  private string PlayerNumberValue(int value)
+  private string CalculateHandValue(List<Card> hand)
+  {
+    int totalValue = 0;
+    int aceCount = 0;
+
+    foreach (var card in hand)
+    {
+      string cardRank = card.rank.ToUpper();
+      int value = 0;
+      switch (cardRank)
+      {
+        case "J":
+        case "Q":
+        case "K":
+          value = 10;
+          break;
+        case "A":
+          value = 11;
+          aceCount++;
+          break;
+        default:
+          value = int.Parse(cardRank);
+          break;
+      }
+      totalValue += value;
+    }
+
+    while (totalValue > 21 && aceCount > 0)
+    {
+      totalValue -= 10;
+      aceCount--;
+    }
+
+    if (hand.Count == 2 && totalValue == 21)
+    {
+      return "21";
+    }
+
+    bool hasAce = false;
+    foreach (var card in hand)
+    {
+      if (card.rank.ToUpper() == "A")
+      {
+        hasAce = true;
+        break;
+      }
+    }
+
+    if (hasAce)
+    {
+      int valueWithAceAsOne = 0;
+      foreach (var card in hand)
+      {
+        string cardRank = card.rank.ToUpper();
+        int value = 0;
+        if (cardRank == "A")
+        {
+          value = 1;
+        }
+        else if (cardRank == "J" || cardRank == "Q" || cardRank == "K")
+        {
+          value = 10;
+        }
+        else
+        {
+          value = int.Parse(cardRank);
+        }
+        valueWithAceAsOne += value;
+      }
+
+      if (totalValue != valueWithAceAsOne && totalValue <= 21)
+      {
+        return $"{valueWithAceAsOne} / {totalValue}";
+      }
+    }
+
+    return totalValue.ToString();
+  }
+
+  bool LowBalCheck(int value)
+  {
+    if (socket.PlayerData.balance < mainBet + multiplierBet + value)
+    {
+      uiManager.ShowMaxBetPopup("Insufficient Balance!");
+      return true;
+    }
+    return false;
+  }
+
+  private string PlayerNumberTestValue(int value)
   {
     switch (value)
     {
@@ -758,7 +954,7 @@ public class BJController : MonoBehaviour
     }
   }
 
-  private string DealerNumberValue(int value)
+  private string DealerNumberTestValue(int value)
   {
     switch (value)
     {
@@ -809,4 +1005,104 @@ public class BJController : MonoBehaviour
         return temparr[value - 1];
     }
   }
+
+  private Sprite SelectSprite(Card cardData)
+  {
+    Sprite[] SuitsArr = null;
+    string suit = cardData.suit.ToLower();
+
+    switch (suit)
+    {
+      case "clubs":
+        SuitsArr = clubs_Sprite;
+        break;
+      case "spades":
+        SuitsArr = spades_Sprite;
+        break;
+      case "hearts":
+        SuitsArr = hearts_Sprite;
+        break;
+      case "diamonds":
+        SuitsArr = diamonds_Sprite;
+        break;
+    }
+
+    if (SuitsArr == null)
+    {
+      Debug.LogError("Suit array is null for suit: " + suit);
+      return card_Back; // Return a default sprite to avoid crashes
+    }
+
+    string cardValue = cardData.rank.ToUpper();
+
+    switch (cardValue)
+    {
+      case "J":
+        return SuitsArr[10];
+      case "Q":
+        { }
+        return SuitsArr[11];
+      case "K":
+        return SuitsArr[12];
+      case "A":
+        return SuitsArr[0];
+      default:
+        int val = int.Parse(cardValue);
+        return SuitsArr[val - 1];
+    }
+  }
+
+  internal void PlayerBust()
+  {
+    string total = PlayerTotal_Text.text;
+    PlayerTotal_Text.text = "BUST " + total;
+  }
+
+  internal void PlayerPush()
+  {
+    string total = PlayerTotal_Text.text;
+    PlayerTotal_Text.text = "PUSH " + total;
+  }
+
+  private void AddDoubleChips(int amountToAdd, bool isSide)
+  {
+    int[] chipValues = socket.bets.ToArray();
+
+    // Largest → smallest chip
+    for (int i = chipValues.Length - 1; i >= 0; i--)
+    {
+      while (amountToAdd >= chipValues[i])
+      {
+        AddChipInstance(chipValues[i], i, isSide);
+        amountToAdd -= chipValues[i];
+      }
+    }
+  }
+  private void AddChipInstance(int value, int prefabIndex, bool isSide)
+  {
+    Transform targetParent = isSide ? MultiplyChipsParent_Transform : ChipsParent_Transform;
+
+    GameObject coin = Instantiate(Coins_Prefab[prefabIndex], CoinContainers_Transform[prefabIndex]);
+    coin.transform.localPosition = Vector2.zero;
+    coin.transform.SetParent(targetParent);
+    coin.transform.localScale = Vector3.one;
+
+    List<GameObject> targetList = isSide ? multiplyinstantiated_Coins : instantiated_Coins;
+    List<int> valueList = isSide ? multiplyinstantiated_Value : instantiated_Value;
+
+    coin.transform.DOLocalMove(new Vector2(0, targetList.Count * 2f), 0.2f)
+        .OnComplete(() =>
+        {
+          if (isSide)
+            MultiplyOptimizeCoinStack();
+          else
+            OptimizeCoinStack();
+        });
+
+    targetList.Add(coin);
+    valueList.Add(value);
+
+    betHistory.Add((isSide ? "multiplier_" : "main_") + value);
+  }
+
 }
