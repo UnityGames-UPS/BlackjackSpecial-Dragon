@@ -51,13 +51,13 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject InitialButtons_object;
   [SerializeField] private GameObject MiddleButtons_object;
   [SerializeField] private GameObject RebetButtons_object;
-  [SerializeField] private GameObject MainBet_object;
+  [SerializeField] private GameObject MultBetBttn_Object;
   [SerializeField] private GameObject PlayerCardTotal_Object;
   [SerializeField] private GameObject DealerCardTotal_Object;
-  [SerializeField] private GameObject ChipBets_Object;
+  [SerializeField] private GameObject ChipSelectParent_Object;
   [SerializeField] private GameObject Split_object;
   [SerializeField] private GameObject MiddleDouble_object;
-  [SerializeField] private GameObject BetButton_Object;
+  [SerializeField] private GameObject MainBetButton_Object;
   [SerializeField] private GameObject ChipContainer_Object;
   [SerializeField] private GameObject MultiplierBetButton_Object;
   [SerializeField] private GameObject ArrPointer_Object;
@@ -75,10 +75,16 @@ public class UIManager : MonoBehaviour
   [SerializeField] private CanvasGroup Popup_CG;
   [SerializeField] private TMP_Text Popup_Text;
   [SerializeField] private TMP_Text YouWin_Text;
+  [SerializeField] private TMP_Text XMultiplier_Text;
+  [SerializeField] private Transform MultiplierHistoryParent;
+  [SerializeField] private GameObject HistoryPrefab;
+  private Queue<GameObject> historyQueue = new Queue<GameObject>();
+
 
   [Header("Transforms")]
   [SerializeField] private Transform ScrollParent_Transform;
   [SerializeField] private Transform Selected_Transform;
+  [SerializeField] private Transform multiplierChipsParent_Transform;
   [SerializeField] private Transform[] PDummyPos_Transform;
   [SerializeField] private Transform[] DDummyPos_Transform;
   [SerializeField] private Transform[] FSDummyPos_Transform;
@@ -88,11 +94,8 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject DragonNormal_Object;
   [SerializeField] private GameObject DragonFire_Object;
   [SerializeField] private GameObject Fire_Object;
-  [SerializeField] private Transform X2_Transform;
-  [SerializeField] private GameObject X2_Object;
   [SerializeField] private ImageAnimation Box_Animation;
   [SerializeField] private Transform LeftBox_Transform;
-  [SerializeField] private Sprite X2_Sprite;
   [SerializeField] private Sprite Empty_Sprite;
 
 
@@ -103,8 +106,8 @@ public class UIManager : MonoBehaviour
 
   private void Start()
   {
-    if (MainBet_object) MainBet_object.SetActive(true);
-    if (ChipBets_Object) ChipBets_Object.SetActive(true);
+    if (MultBetBttn_Object) MultBetBttn_Object.SetActive(true);
+    if (ChipSelectParent_Object) ChipSelectParent_Object.SetActive(true);
     if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(false);
     if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(false);
 
@@ -323,7 +326,7 @@ public class UIManager : MonoBehaviour
 
   private void OnStand()
   {
-    StartCoroutine(DealerFinalButton());
+    StartCoroutine(OnStandCoroutine());
   }
 
   private void OnDoubleAndStand()
@@ -342,13 +345,13 @@ public class UIManager : MonoBehaviour
   {
     ResetUI();
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    yield return StartCoroutine(BJmanager.ClearCards());
-    if (BetButton_Object) BetButton_Object.SetActive(true);
+    yield return BJmanager.ClearCards();
+    if (MainBetButton_Object) MainBetButton_Object.SetActive(true);
     // if (ChipContainer_Object) ChipContainer_Object.SetActive(true);
     // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(true);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
-    if (MainBet_object) MainBet_object.SetActive(true);
-    if (ChipBets_Object) ChipBets_Object.SetActive(true);
+    if (MultBetBttn_Object) MultBetBttn_Object.SetActive(true);
+    if (ChipSelectParent_Object) ChipSelectParent_Object.SetActive(true);
     if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(false);
     if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(false);
     if (InitialButtons_object) InitialButtons_object.SetActive(true);
@@ -362,7 +365,7 @@ public class UIManager : MonoBehaviour
   private IEnumerator OnRebetDealCoroutine()
   {
     ResetUI();
-    if (BetButton_Object) BetButton_Object.SetActive(false);
+    if (MainBetButton_Object) MainBetButton_Object.SetActive(false);
     // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
     // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
     if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
@@ -380,7 +383,7 @@ public class UIManager : MonoBehaviour
   {
     ResetUI();
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    if (BetButton_Object) BetButton_Object.SetActive(false);
+    if (MainBetButton_Object) MainBetButton_Object.SetActive(false);
     yield return BJmanager.ClearCards();
     // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
     // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
@@ -407,15 +410,14 @@ public class UIManager : MonoBehaviour
   private IEnumerator OnStartDeal()
   {
     if (InitialButtons_object) InitialButtons_object.SetActive(false);
-    if (BetButton_Object) BetButton_Object.SetActive(false);
-    if (MainBet_object) MainBet_object.SetActive(false);
-    if (ChipBets_Object) ChipBets_Object.SetActive(false);
+    MainBet_Button.gameObject.SetActive(false);
+    MultiplierBet_Button.gameObject.SetActive(false);
+    if (ChipSelectParent_Object) ChipSelectParent_Object.SetActive(false);
 
     ChipParent_Transform.localPosition = new(ChipParent_Transform.localPosition.x, ChipParent_Transform.localPosition.y - 132, ChipParent_Transform.localPosition.z);
 
     socket.RequestEvent("DEAL");
     yield return new WaitUntil(() => socket.IsResultDone);
-    BJmanager.UpdateBalance(socket.ResultData.player.balance);
 
     BJmanager.isFlippin = true;
     BJmanager.OnPlayerDealButton(socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
@@ -436,6 +438,7 @@ public class UIManager : MonoBehaviour
 
     if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(true);
     if (DealerCardTotal_Object) DealerCardTotal_Object.SetActive(true);
+    BJmanager.UpdateBalance(socket.ResultData.player.balance);
 
     if (BJmanager.CheckMultiplier())
     {
@@ -477,13 +480,21 @@ public class UIManager : MonoBehaviour
     }
     else if (gameState.Contains("completed"))
     {
-      if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("blackjack"))
+      double win = socket.ResultData.payload.totalWin;
+      if (win > 0)
       {
-        if (PlayerBlackjack_Object) PlayerBlackjack_Object.SetActive(true);
+        if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("blackjack"))
+        {
+          if (PlayerBlackjack_Object) PlayerBlackjack_Object.SetActive(true);
+        }
+        YouWin_Text.text = win.ToString("N2");
+        if (YouWin_Object) YouWin_Object.SetActive(true);
+        BJmanager.UpdateWinnings(win);
       }
-      YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
-      if (YouWin_Object) YouWin_Object.SetActive(true);
-      BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      else
+      {
+        BJmanager.LostChipsAnimation();
+      }
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
     }
   }
@@ -491,7 +502,7 @@ public class UIManager : MonoBehaviour
   private IEnumerator HitDealButton(bool isDouble)
   {
     if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
-    if (Split_object && Split_object.activeInHierarchy) Split_object.SetActive(false);
+    if (Split_object && Split_object.activeSelf) Split_object.SetActive(false);
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
     if (!BJmanager.isSplit)
     {
@@ -527,7 +538,7 @@ public class UIManager : MonoBehaviour
     }
   }
 
-  private IEnumerator DealerFinalButton()
+  private IEnumerator OnStandCoroutine()
   {
     if (ArrPointer_Object && ArrPointer_Object.activeInHierarchy) ArrPointer_Object.SetActive(false);
     if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
@@ -560,18 +571,29 @@ public class UIManager : MonoBehaviour
           }
         }
       }
+      BJmanager.UpdateBalance(socket.ResultData.player.balance);
+      string result = socket.ResultData.payload.handResults[0].result.ToLower();
 
-      if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("push"))
+      if (result.Contains("push"))
       {
         BJmanager.PlayerPush();
         BJmanager.UpdateWinnings(socket.ResultData.payload.handResults[0].payout);
       }
-
-      if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("win"))
+      else if (result.Contains("win"))
       {
         YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
         if (YouWin_Object) YouWin_Object.SetActive(true);
         BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      }
+      else if (result.Contains("lose"))
+      {
+        BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+        BJmanager.LostChipsAnimation();
+      }
+
+      if (socket.ResultData.payload.dealerHand.isBust)
+      {
+        BJmanager.DealerBust();
       }
 
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
@@ -599,21 +621,54 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator DragonRoutine()
   {
-    if (DragonFire_Object) DragonFire_Object.SetActive(true);
-    if (Fire_Object) Fire_Object.SetActive(true);
+    XMultiplier_Text.gameObject.SetActive(false);
     if (DragonNormal_Object) DragonNormal_Object.SetActive(false);
-    yield return new WaitForSeconds(1.5f);
-    if (X2_Transform) X2_Transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
-    if (X2_Transform) X2_Transform.localPosition = new Vector2(200, -90);
-    if (X2_Object) X2_Object.SetActive(true);
-    if (X2_Transform) X2_Transform.DOLocalMove(new Vector2(400, 225), 1f);
-    if (X2_Transform) X2_Transform.DOScale(Vector3.one, 1f);
+    if (DragonFire_Object) DragonFire_Object.SetActive(true);
+    ImageAnimation dragonAnimation = DragonFire_Object.GetComponent<ImageAnimation>();
+    yield return FireAnimationRoutine(dragonAnimation);
+
+    int m = socket.ResultData.payload.sideBetMultiplier;
+    XMultiplier_Text.text = "x" + m;
+
+    XMultiplier_Text.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+    XMultiplier_Text.gameObject.SetActive(true);
+
+    XMultiplier_Text.transform.DOScale(Vector3.one, 0.5f).SetEase(Ease.OutBack)
+    .OnComplete(() =>
+    {
+      AddMultiplierHistory(m);
+    });
+
     if (Box_Animation) Box_Animation.StartAnimation();
-    yield return new WaitForSeconds(0.5f);
+
+    yield return new WaitUntil(() => dragonAnimation.rendererDelegate.sprite == dragonAnimation.textureArray[^1]);
     if (DragonFire_Object) DragonFire_Object.SetActive(false);
-    if (Fire_Object) Fire_Object.SetActive(false);
     if (DragonNormal_Object) DragonNormal_Object.SetActive(true);
     yield return new WaitForSeconds(1f);
+  }
+
+  internal void AddMultiplierHistory(int multiplier)
+  {
+    GameObject newEntry = Instantiate(HistoryPrefab, MultiplierHistoryParent);
+    newEntry.GetComponentInChildren<TMP_Text>().text = "x" + multiplier;
+
+    historyQueue.Enqueue(newEntry);
+
+    while (historyQueue.Count > 3)
+    {
+      GameObject old = historyQueue.Dequeue();
+      Destroy(old);
+    }
+  }
+
+
+  IEnumerator FireAnimationRoutine(ImageAnimation DragonAnimation)
+  {
+    yield return new WaitUntil(() => DragonAnimation.rendererDelegate.sprite == DragonAnimation.textureArray[17]);
+    ImageAnimation fireAnimation = Fire_Object.GetComponent<ImageAnimation>();
+    Fire_Object.SetActive(true);
+    yield return new WaitUntil(() => fireAnimation.rendererDelegate.sprite == fireAnimation.textureArray[^1]);
+    Fire_Object.SetActive(false);
   }
 
   internal void ShowInitialButtons()
@@ -667,6 +722,16 @@ public class UIManager : MonoBehaviour
     if (YouWin_Object.activeInHierarchy) YouWin_Object.SetActive(false);
     BJmanager.UpdateWinnings(0);
     ChipParent_Transform.localPosition = new(ChipParent_Transform.localPosition.x, ChipParent_Transform.localPosition.y + 132, ChipParent_Transform.localPosition.z);
+    for (int i = 0; i < ChipContainer_Object.transform.childCount; i++)
+    {
+      ChipContainer_Object.transform.GetChild(i).gameObject.SetActive(true);
+    }
+    for(int i = 0; i<multiplierChipsParent_Transform.childCount; i++)
+    {
+      multiplierChipsParent_Transform.GetChild(i).gameObject.SetActive(true);
+    }
+    BJmanager.MainBetText_Object.SetActive(true);
+    BJmanager.MultiplierBetText_Object.SetActive(true);
   }
 
   private void OpenPopup(GameObject popup)

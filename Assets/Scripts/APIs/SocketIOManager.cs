@@ -10,7 +10,7 @@ public class SocketIOManager : MonoBehaviour
 {
   [SerializeField] private BJController bJController;
   [SerializeField] private UIManager UiManager;
-  // [SerializeField] internal JSFunctCalls JSManager;
+  [SerializeField] internal JSFunctCalls JSManager;
   [SerializeField] internal string TestSocketURI = "http://localhost:5000/";
   [SerializeField] private string TestToken;
   [SerializeField] private GameObject RaycastBlocker;
@@ -348,6 +348,9 @@ public class SocketIOManager : MonoBehaviour
 
   internal void RequestEvent(string eventName)
   {
+    if (eventName.Contains("DEAL") && bJController.LowBalCheck())
+      return;
+
     IsResultDone = false;
     RequestClass message = new RequestClass
     {
@@ -440,6 +443,7 @@ public class DealerHand
   public int value;
   public bool isSoft;
   public bool isBlackjack;
+  public bool isBust;
 }
 
 [Serializable]

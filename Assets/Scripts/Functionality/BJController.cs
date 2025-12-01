@@ -10,9 +10,9 @@ public class BJController : MonoBehaviour
   [SerializeField] private SocketIOManager socket;
   [SerializeField] private UIManager uiManager;
 
-  [SerializeField] private GameObject MainBetText_Object;
+  [SerializeField] internal GameObject MainBetText_Object;
   [SerializeField] private TMP_Text MainBetText_Text;
-  [SerializeField] private GameObject MultiplierBetText_Object;
+  [SerializeField] internal GameObject MultiplierBetText_Object;
   [SerializeField] private TMP_Text MultiplierBetText_Text;
 
   [Header("Transforms")]
@@ -24,6 +24,7 @@ public class BJController : MonoBehaviour
   [SerializeField] private Transform EndDeck_Transform;
   [SerializeField] private Transform FirstSplit_Transform;
   [SerializeField] private Transform SecondSplit_Transform;
+  [SerializeField] private Transform ChipsLost_Transform;
 
   [Header("Lists and Arrays")]
   [SerializeField] private Transform[] CoinContainers_Transform;
@@ -438,15 +439,11 @@ public class BJController : MonoBehaviour
     List<Transform> cardTransforms = new();
     int dealerFlippedIndex = -1;
 
-    // PlayerContainer_Transform.GetChild(0).gameObject.SetActive(false);
-    // PlayerContainer_Transform.GetChild(1).gameObject.SetActive(false);
     for (int i = 0; i < PlayerContainer_Transform.childCount; i++)
     {
       cardTransforms.Add(PlayerContainer_Transform.GetChild(i));
-      // Destroy(PlayerContainer_Transform.GetChild(i).gameObject);
     }
 
-    // DealerContainer_Transform.GetChild(0).gameObject.SetActive(false);
     for (int i = 0; i < DealerContainer_Transform.childCount; i++)
     {
       cardTransforms.Add(DealerContainer_Transform.GetChild(i));
@@ -454,23 +451,16 @@ public class BJController : MonoBehaviour
       {
         dealerFlippedIndex = cardTransforms.LastIndexOf(DealerContainer_Transform.GetChild(i));
       }
-      // Destroy(DealerContainer_Transform.GetChild(i).gameObject);
     }
 
-    // FirstSplit_Transform.GetChild(0).gameObject.SetActive(false);
-    // FirstSplit_Transform.GetChild(1).gameObject.SetActive(false);
     for (int i = 0; i < FirstSplit_Transform.childCount; i++)
     {
       cardTransforms.Add(FirstSplit_Transform.GetChild(i));
-      // Destroy(FirstSplit_Transform.GetChild(i).gameObject);
     }
 
-    // SecondSplit_Transform.GetChild(0).gameObject.SetActive(false);
-    // SecondSplit_Transform.GetChild(1).gameObject.SetActive(false);
     for (int i = 0; i < SecondSplit_Transform.childCount; i++)
     {
       cardTransforms.Add(SecondSplit_Transform.GetChild(i));
-      // Destroy(SecondSplit_Transform.GetChild(i).gameObject);
     }
 
     List<Tween> tweens = new();
@@ -876,7 +866,7 @@ public class BJController : MonoBehaviour
     return totalValue.ToString();
   }
 
-  bool LowBalCheck(int value)
+  internal bool LowBalCheck(int value = 0)
   {
     if (socket.PlayerData.balance < mainBet + multiplierBet + value)
     {
@@ -1052,10 +1042,54 @@ public class BJController : MonoBehaviour
     }
   }
 
+  internal void LostChipsAnimation()
+  {
+    foreach (GameObject coin in instantiated_Coins)
+    {
+      Vector3 initPos = coin.transform.position;
+      coin.transform.DOMove(ChipsLost_Transform.position, 0.3f).OnComplete(() =>
+      {
+        coin.SetActive(false);
+        coin.transform.position = initPos;
+      });
+    }
+
+    foreach (GameObject coin in multiplyinstantiated_Coins)
+    {
+      Vector3 initPos = coin.transform.position;
+      coin.transform.DOMove(ChipsLost_Transform.position, 0.3f).OnComplete(() =>
+      {
+        coin.SetActive(false);
+        coin.transform.position = initPos;
+      });
+    }
+
+    if (MainBetText_Object.activeSelf)
+    {
+      MainBetText_Object.SetActive(false);
+    }
+    if(MultiplierBetText_Object.activeSelf)
+    {
+      MultiplierBetText_Object.SetActive(false);
+    }
+  }
+
   internal void PlayerBust()
   {
+    LostChipsAnimation();
     string total = PlayerTotal_Text.text;
     PlayerTotal_Text.text = "BUST " + total;
+  }
+
+  internal void DealerBust()
+  {
+    string total = DealerTotal_Text.text;
+    DealerTotal_Text.text = "BUST " + total;
+  }
+
+  internal void SetDealerValue(int value)
+  {
+    DealerTotal_Text.text = value.ToString();
   }
 
   internal void PlayerPush()
@@ -1078,6 +1112,7 @@ public class BJController : MonoBehaviour
       }
     }
   }
+
   private void AddChipInstance(int value, int prefabIndex, bool isSide)
   {
     Transform targetParent = isSide ? MultiplyChipsParent_Transform : ChipsParent_Transform;
@@ -1104,5 +1139,4 @@ public class BJController : MonoBehaviour
 
     betHistory.Add((isSide ? "multiplier_" : "main_") + value);
   }
-
 }
