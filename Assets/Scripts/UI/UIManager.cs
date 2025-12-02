@@ -31,7 +31,7 @@ public class UIManager : MonoBehaviour
   [Header("Middle Buttons")]
   [SerializeField] private Button Hit_Button;
   [SerializeField] private Button Stand_button;
-  [SerializeField] private Button DoubleShow_Button;
+  [SerializeField] private Button InitDouble_Button;
   [SerializeField] private Button Split_Button;
 
   [Header("Rebet Buttons")]
@@ -136,8 +136,8 @@ public class UIManager : MonoBehaviour
     if (DoubleBet_Button) DoubleBet_Button.onClick.RemoveAllListeners();
     if (DoubleBet_Button) DoubleBet_Button.onClick.AddListener(OnInitialDouble);
 
-    if (DoubleShow_Button) DoubleShow_Button.onClick.RemoveAllListeners();
-    if (DoubleShow_Button) DoubleShow_Button.onClick.AddListener(OnDoubleAndStand);
+    if (InitDouble_Button) InitDouble_Button.onClick.RemoveAllListeners();
+    if (InitDouble_Button) InitDouble_Button.onClick.AddListener(OnInitDoubleButton);
 
     if (RebetDeal_Button) RebetDeal_Button.onClick.RemoveAllListeners();
     if (RebetDeal_Button) RebetDeal_Button.onClick.AddListener(OnRebetDeal);
@@ -327,11 +327,9 @@ public class UIManager : MonoBehaviour
     StartCoroutine(OnStandCoroutine());
   }
 
-  private void OnDoubleAndStand()
+  private void OnInitDoubleButton()
   {
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
-    BJmanager.TryDoubleBet();
-    OnHit(true);
   }
 
   private void OnRebet()
@@ -341,13 +339,10 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnRebetCoroutine()
   {
-    ResetUI();
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
+    ResetUI();
     yield return BJmanager.ClearCards();
     if (MainBetButton_Object) MainBetButton_Object.SetActive(true);
-    // if (ChipContainer_Object) ChipContainer_Object.SetActive(true);
-    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(true);
-    if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
     if (MultBetBttn_Object) MultBetBttn_Object.SetActive(true);
     if (ChipSelectParent_Object) ChipSelectParent_Object.SetActive(true);
     if (PlayerCardTotal_Object) PlayerCardTotal_Object.SetActive(false);
@@ -362,13 +357,10 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnRebetDealCoroutine()
   {
+    if (RebetButtons_object) RebetButtons_object.SetActive(false);
     ResetUI();
     if (MainBetButton_Object) MainBetButton_Object.SetActive(false);
-    // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
-    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
-    if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
-    if (RebetButtons_object) RebetButtons_object.SetActive(false);
-    yield return StartCoroutine(BJmanager.ClearCards());
+    yield return BJmanager.ClearCards();
     OnDeal();
   }
 
@@ -383,33 +375,46 @@ public class UIManager : MonoBehaviour
     if (RebetButtons_object) RebetButtons_object.SetActive(false);
     if (MainBetButton_Object) MainBetButton_Object.SetActive(false);
     yield return BJmanager.ClearCards();
-    // if (ChipContainer_Object) ChipContainer_Object.SetActive(false);
-    // if (MultiplierBetButton_Object) MultiplierBetButton_Object.SetActive(false);
-    if (MiddleDouble_object) MiddleDouble_object.SetActive(true);
-    BJmanager.TryDoubleBet();
     OnDeal();
   }
 
   private void OnSplit()
   {
-    StartCoroutine(OnSplitDeal());
+    StartCoroutine(OnSplitDealCoroutine());
   }
 
-  private IEnumerator OnSplitDeal()
+  private IEnumerator OnSplitDealCoroutine()
   {
+    socket.RequestEvent("SPLIT");
+    yield return new WaitUntil(() => socket.IsResultDone);
+
+    if (!socket.ResultData.success)
+    {
+      ShowPopup("Insufficient balance to split!");
+      Split_object.SetActive(false);
+      yield break;
+    }
+
     ChipParent_Transform.gameObject.SetActive(false);
     ArrPointer_Object.SetActive(false);
     if (Split_object) Split_object.SetActive(false);
     if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
     if (MiddleDouble_object.activeSelf) MiddleDouble_object.SetActive(false);
     PlayerCardTotal_Object.SetActive(false);
-    socket.RequestEvent("SPLIT");
-    yield return new WaitUntil(()=> socket.IsResultDone);
     yield return BJmanager.SplitButton();
     FirstSplitCardTotal_Object.SetActive(true);
     SecondSplitCardTotal_Object.SetActive(true);
-    if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-    FirstArrPointer_Object.SetActive(true);
+
+    if (socket.ResultData.payload.isAceSplit)
+    {
+      BJmanager.isFirstSplit = false;
+      OnStand();
+    }
+    else
+    {
+      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+      FirstArrPointer_Object.SetActive(true);
+    }
   }
 
   private IEnumerator OnStartDeal()
@@ -466,7 +471,7 @@ public class UIManager : MonoBehaviour
       {
         if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
         if (Split_object) Split_object.SetActive(socket.ResultData.payload.canSplit);
-        if (DoubleShow_Button) DoubleShow_Button.gameObject.SetActive(socket.ResultData.payload.canDouble);
+        if (InitDouble_Button) InitDouble_Button.gameObject.SetActive(socket.ResultData.payload.canDouble);
         if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
       }
     }
@@ -482,7 +487,7 @@ public class UIManager : MonoBehaviour
         YouWin_Text.text = win.ToString("N2");
         if (YouWin_Object) YouWin_Object.SetActive(true);
         BJmanager.UpdateWinnings(win);
-        BJmanager.UpdateBetText(socket.ResultData.payload.totalWin-socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
+        BJmanager.UpdateBetText(socket.ResultData.payload.totalWin - socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
       }
       else
       {
@@ -498,10 +503,10 @@ public class UIManager : MonoBehaviour
     if (Split_object && Split_object.activeSelf) Split_object.SetActive(false);
     if (MiddleDouble_object.activeSelf) MiddleDouble_object.SetActive(false);
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
+    socket.RequestEvent("HIT");
+    yield return new WaitUntil(() => socket.IsResultDone);
     if (!BJmanager.isSplit)
     {
-      socket.RequestEvent("HIT");
-      yield return new WaitUntil(() => socket.IsResultDone);
       BJmanager.isFlippin = true;
       BJmanager.OnPlayerDealButton(socket.ResultData.payload.card);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
@@ -526,9 +531,12 @@ public class UIManager : MonoBehaviour
     else
     {
       BJmanager.isFlippin = true;
-      BJmanager.OnSplitDealButton();
+      BJmanager.OnSplitDealButton(socket.ResultData.payload.card);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+      if (!socket.ResultData.payload.isBust && !BJmanager.isFirstSplit)
+      {
+        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+      }
     }
   }
 
@@ -544,27 +552,16 @@ public class UIManager : MonoBehaviour
       BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
 
-      if (BJmanager.useTestData)
+      if (socket.ResultData.payload.dealerHand.cards.Count > 2)
       {
-        for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
+        for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
         {
           BJmanager.isFlippin = true;
-          BJmanager.OnDealerButton();
+          BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
           yield return new WaitUntil(() => !BJmanager.isFlippin);
         }
       }
-      else
-      {
-        if (socket.ResultData.payload.dealerHand.cards.Count > 2)
-        {
-          for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
-          {
-            BJmanager.isFlippin = true;
-            BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
-            yield return new WaitUntil(() => !BJmanager.isFlippin);
-          }
-        }
-      }
+
       BJmanager.UpdateBalance(socket.ResultData.player.balance);
       string result = socket.ResultData.payload.handResults[0].result.ToLower();
 
@@ -578,7 +575,7 @@ public class UIManager : MonoBehaviour
         YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
         if (YouWin_Object) YouWin_Object.SetActive(true);
         BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
-        BJmanager.UpdateBetText(socket.ResultData.payload.totalWin-socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
+        BJmanager.UpdateBetText(socket.ResultData.payload.totalWin - socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
       }
       else if (result.Contains("lose"))
       {
@@ -595,21 +592,54 @@ public class UIManager : MonoBehaviour
     }
     else if (BJmanager.isFirstSplit)
     {
-      BJmanager.SplitStandButton();
-      yield return new WaitUntil(() => !BJmanager.isFirstSplit);
+      BJmanager.isFirstSplit = false;
       if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
     }
     else
     {
+      BJmanager.isSplit = false;
+      socket.RequestEvent("STAND");
+      yield return new WaitUntil(() => socket.IsResultDone);
       BJmanager.isFlippin = true;
-      // BJmanager.OnDealerOpenFlipped();
+      BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
-      for (int i = 0; i < BJmanager.dealerData.Count - 2; i++)
+
+      if (socket.ResultData.payload.dealerHand.cards.Count > 2)
       {
-        BJmanager.isFlippin = true;
-        // BJmanager.OnDealerButton(DDummyPos_Transform[BJmanager.dealerCounter].localPosition);
-        // yield return new WaitUntil(() => !BJmanager.isFlippin);
+        for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+        {
+          BJmanager.isFlippin = true;
+          BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+          yield return new WaitUntil(() => !BJmanager.isFlippin);
+        }
       }
+
+      BJmanager.UpdateBalance(socket.ResultData.player.balance);
+      // string result = socket.ResultData.payload.handResults[0].result.ToLower();
+
+      // if (result.Contains("push"))
+      // {
+      //   BJmanager.PlayerPush();
+      //   BJmanager.UpdateWinnings(socket.ResultData.payload.handResults[0].payout);
+      // }
+      // else if (result.Contains("win"))
+      // {
+      //   YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+      //   if (YouWin_Object) YouWin_Object.SetActive(true);
+      //   BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      //   // BJmanager.UpdateBetText(socket.ResultData.payload.totalWin - socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
+      // }
+      // else if (result.Contains("lose"))
+      // {
+      //   BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+      //   BJmanager.LostChipsAnimation();
+      // }
+
+      if (socket.ResultData.payload.dealerHand.isBust)
+      {
+        BJmanager.DealerBust();
+      }
+
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
     }
   }
@@ -726,7 +756,7 @@ public class UIManager : MonoBehaviour
       multiplierChipsParent_Transform.GetChild(i).gameObject.SetActive(true);
     }
     BJmanager.MainBetText_Object.SetActive(true);
-    if(BJmanager.multiplierBet>0)
+    if (BJmanager.multiplierBet > 0)
       BJmanager.MultiplierBetText_Object.SetActive(true);
     BJmanager.UpdateBetText(BJmanager.mainBet, BJmanager.multiplierBet);
   }

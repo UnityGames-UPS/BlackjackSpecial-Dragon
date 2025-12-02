@@ -275,7 +275,7 @@ MonoBehaviour:
   UiManager: {fileID: 1141078115}
   JSManager: {fileID: 0}
   TestSocketURI: http://localhost:5000/
-  TestToken: ce31d031a5f04c66a7cd345861a73df0
+  TestToken: 062de1b91b714e549978998c6b7fe66d
   RaycastBlocker: {fileID: 1623683830}
 --- !u!4 &43691434
 Transform:
@@ -10316,7 +10316,7 @@ MonoBehaviour:
   BlackBackground_Button: {fileID: 1308183020}
   Hit_Button: {fileID: 1982922540}
   Stand_button: {fileID: 892063111}
-  DoubleShow_Button: {fileID: 347027998}
+  InitDouble_Button: {fileID: 347027998}
   Split_Button: {fileID: 524314541}
   Rebet_Button: {fileID: 762802297}
   RebetDeal_Button: {fileID: 1332308915}

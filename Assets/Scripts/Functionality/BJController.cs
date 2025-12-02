@@ -569,10 +569,10 @@ public class BJController : MonoBehaviour
     Sprite tempArr2 = SelectSprite(socket.ResultData.payload.hands[1].cards[1]);
     card2.transform.DORotate(Vector3.zero, 0.3f);
     card2.transform.DOScale(Vector3.one, 0.3f);
-    card2.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    yield return card2.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
     {
       card2.GetComponent<CardScript>().OnFlipMethod(tempArr2, 4, socket.ResultData.payload.hands[1].cards[1]);
-    });
+    }).WaitForCompletion();
   }
 
   internal void UndoBetButton()
@@ -746,37 +746,25 @@ public class BJController : MonoBehaviour
     });
   }
 
-  internal void SplitStandButton()
+  internal void OnSplitDealButton(Card CardData)
   {
-    isFirstSplit = false;
-  }
+    GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
+    card.transform.localPosition = Vector2.zero;
+    card.transform.localScale -= card.transform.localScale * 0.2f;
 
-  internal void OnSplitDealButton()
-  {
     if (isFirstSplit)
-    {
-      GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
-      card.transform.localPosition = Vector2.zero;
       card.transform.SetParent(FirstSplit_Transform);
-      Sprite tempArr = SelectRandomArray(firstplayerData[FirstSplitplayerCounter]);
-      card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
-      {
-        card.GetComponent<CardScript>().OnFlipMethod(tempArr, 3);
-      });
-      card.transform.DOScale(Vector3.one, 0.3f);
-    }
     else
-    {
-      GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
-      card.transform.localPosition = Vector2.zero;
       card.transform.SetParent(SecondSplit_Transform);
-      Sprite tempArr = SelectRandomArray(secondplayerData[SecondSplitplayerCounter]);
-      card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
-      {
-        card.GetComponent<CardScript>().OnFlipMethod(tempArr, 4);
-      });
-      card.transform.DOScale(Vector3.one, 0.3f);
-    }
+    
+    Sprite sprite = SelectSprite(CardData);
+
+    card.transform.DOScale(Vector3.one, 0.3f);
+    card.transform.DOLocalRotate(Vector3.zero, 0.3f);
+    card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    {
+      card.GetComponent<CardScript>().OnFlipMethod(sprite, isFirstSplit ? 3 : 4, CardData);
+    });
   }
 
   internal void AfterCardFlip(int value, Card card)
@@ -808,12 +796,12 @@ public class BJController : MonoBehaviour
         dealerCounter++;
         break;
       case 3:
-        if(card != null) firstPlayerCards.Add(card);
+        if (card != null) firstPlayerCards.Add(card);
         FirstSplitTotal_Text.text = CalculateHandValue(firstPlayerCards);
         FirstSplitplayerCounter++;
         break;
       case 4:
-        if(card!=null) secondPlayerCards.Add(card);
+        if (card != null) secondPlayerCards.Add(card);
         SecondSplitTotal_Text.text = CalculateHandValue(secondPlayerCards);
         SecondSplitplayerCounter++;
         break;

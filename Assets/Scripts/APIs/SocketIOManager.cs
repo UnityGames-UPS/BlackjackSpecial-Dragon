@@ -299,39 +299,21 @@ public class SocketIOManager : MonoBehaviour
     Debug.Log(jsonObject);
     Data = JsonConvert.DeserializeObject<Root>(jsonObject);
 
+    // if (!Data.success && Data.id.ToLower() != "initdata")
+    // {
+    //   ResultData = Data;
+    //   IsResultDone = true;
+    //   return;
+    // }
+
     string id = Data.id;
     PlayerData = Data.player;
-
     switch (id.ToLower())
     {
       case "initdata":
         {
           bets = Data.gameData.bets;
           HandleInit();
-          break;
-        }
-      case "dealresult":
-        {
-          ResultData = Data;
-          IsResultDone = true;
-          break;
-        }
-      case "hitresult":
-        {
-          ResultData = Data;
-          IsResultDone = true;
-          break;
-        }
-      // case "standresult":
-      // {
-      //   StandResultData = Data;
-      //   IsResultDone = true;
-      //   break;
-      // }
-      case "gameresult":
-        {
-          ResultData = Data;
-          IsResultDone = true;
           break;
         }
       default:
@@ -419,6 +401,8 @@ public class Payload
   public Hand dealerHand;
   public Card dealerUpCard;
   public Card card;
+  public int currentHandIndex;
+  public bool isAceSplit;
   public int handIndex;
   public int handValue;
   public bool isSoft;
@@ -456,7 +440,7 @@ public class Card
 public class Root
 {
   public bool success;
-  public string id;
+  public string id = "";
   public GameData gameData;
   public Payload payload;
   public Player player;
