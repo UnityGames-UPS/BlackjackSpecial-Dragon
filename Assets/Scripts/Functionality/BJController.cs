@@ -72,6 +72,8 @@ public class BJController : MonoBehaviour
 
   internal List<Card> playerCards = new();
   internal List<Card> dealerCards = new();
+  internal List<Card> firstPlayerCards = new();
+  internal List<Card> secondPlayerCards = new();
 
   private int totalValue = 0;
   private int FirsttotalValue = 0;
@@ -146,13 +148,13 @@ public class BJController : MonoBehaviour
 
     if (newMainBet > maxBetAmount)
     {
-      uiManager.ShowMaxBetPopup("Max Main Bet Reached!");
+      uiManager.ShowPopup("Max Main Bet Reached!");
       return false;
     }
 
     if (newSideBet > newMainBet)
     {
-      uiManager.ShowMaxBetPopup("Side Bet Cannot Exceed Main Bet!");
+      uiManager.ShowPopup("Side Bet Cannot Exceed Main Bet!");
       return false;
     }
 
@@ -164,7 +166,7 @@ public class BJController : MonoBehaviour
     if (MainBetText_Object && MainBetText_Text)
     {
       MainBetText_Object.SetActive(true);
-      MainBetText_Text.text = mainBet.ToString();
+      MainBetText_Text.text = mainBet.ToString("N2");
     }
 
     if (multiplierBet > 0)
@@ -177,7 +179,7 @@ public class BJController : MonoBehaviour
       if (MultiplierBetText_Object && MultiplierBetText_Text)
       {
         MultiplierBetText_Object.SetActive(true);
-        MultiplierBetText_Text.text = multiplierBet.ToString();
+        MultiplierBetText_Text.text = multiplierBet.ToString("N2");
       }
     }
 
@@ -191,7 +193,7 @@ public class BJController : MonoBehaviour
   {
     if (mainBet + amount_array[CoinCounter] > maxBetAmount)
     {
-      uiManager.ShowMaxBetPopup("Max Bet Reached!");
+      uiManager.ShowPopup("Max Bet Reached!");
       return;
     }
     if (LowBalCheck(amount_array[CoinCounter]))
@@ -211,20 +213,20 @@ public class BJController : MonoBehaviour
     if (MainBetText_Object && MainBetText_Text)
     {
       MainBetText_Object.SetActive(true);
-      MainBetText_Text.text = mainBet.ToString();
+      MainBetText_Text.text = mainBet.ToString("N2");
     }
     betHistory.Add("main_" + amount_array[CoinCounter]);
   }
 
   internal void MultiplierBetOnButton()
   {
-    if (mainBet == 0)
-    {
-      return;
-    }
+    // if (mainBet == 0)
+    // {
+    //   return;
+    // }
     if (multiplierBet + amount_array[CoinCounter] > mainBet)
     {
-      uiManager.ShowMaxBetPopup("Max Multiplier Bet Reached!");
+      uiManager.ShowPopup("Max Multiplier Bet Reached!");
       return;
     }
     if (LowBalCheck(amount_array[CoinCounter]))
@@ -244,7 +246,7 @@ public class BJController : MonoBehaviour
     if (MultiplierBetText_Object && MultiplierBetText_Text)
     {
       MultiplierBetText_Object.SetActive(true);
-      MultiplierBetText_Text.text = multiplierBet.ToString();
+      MultiplierBetText_Text.text = multiplierBet.ToString("N2");
     }
     betHistory.Add("multiplier_" + amount_array[CoinCounter]);
   }
@@ -494,6 +496,8 @@ public class BJController : MonoBehaviour
 
     playerCards.Clear();
     dealerCards.Clear();
+    firstPlayerCards.Clear();
+    secondPlayerCards.Clear();
     playerCounter = 0;
     dealerCounter = 0;
     FirstSplitplayerCounter = 0;
@@ -520,27 +524,55 @@ public class BJController : MonoBehaviour
     isFirstSplit = false;
   }
 
-  internal void SplitButton()
+  internal IEnumerator SplitButton()
   {
     if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(true);
     if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(true);
-    GameObject tempCard = PlayerContainer_Transform.GetChild(2).gameObject;
+    GameObject tempCard = PlayerContainer_Transform.GetChild(0).gameObject;
     tempCard.transform.SetParent(FirstSplit_Transform);
     tempCard.transform.DOLocalMove(new Vector2(0, 0), 0.3f);
     tempCard.transform.DOScale(Vector3.one, 0.3f);
-    tempCard = PlayerContainer_Transform.GetChild(2).gameObject;
+    tempCard = PlayerContainer_Transform.GetChild(0).gameObject;
     tempCard.transform.SetParent(SecondSplit_Transform);
     tempCard.transform.DOLocalMove(new Vector2(0, 0), 0.3f);
     tempCard.transform.DOScale(Vector3.one, 0.3f);
-    if (FirstSplitTotal_Text) FirstSplitTotal_Text.text = SplitPlayerNumberValue(firstplayerData[FirstSplitplayerCounter], true);
-    string temp1 = SplitPlayerNumberValue(FirstSplitplayerCounter, true);
-    Debug.Log("my valus is " + temp1);
-    if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = SplitPlayerNumberValue(secondplayerData[SecondSplitplayerCounter], false);
+
+    firstPlayerCards.Add(socket.ResultData.payload.hands[0].cards[0]);
+    secondPlayerCards.Add(socket.ResultData.payload.hands[1].cards[0]);
+    if (FirstSplitTotal_Text) FirstSplitTotal_Text.text = CalculateHandValue(firstPlayerCards);
+    if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = CalculateHandValue(secondPlayerCards);
+
     FirstSplitplayerCounter++;
     SecondSplitplayerCounter++;
     // if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
     isSplit = true;
     isFirstSplit = true;
+
+    GameObject card = Instantiate(Cards_Prefab, Deck_Transform);
+    card.transform.localPosition = Vector2.zero;
+    card.transform.localScale -= card.transform.localScale * 0.2f;
+
+    card.transform.SetParent(FirstSplit_Transform);
+    Sprite tempArr = SelectSprite(socket.ResultData.payload.hands[0].cards[1]);
+    card.transform.DOScale(Vector3.one, 0.3f);
+    card.transform.DOLocalRotate(Vector3.zero, 0.3f);
+    yield return card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    {
+      card.GetComponent<CardScript>().OnFlipMethod(tempArr, 3, socket.ResultData.payload.hands[0].cards[1]);
+    }).WaitForCompletion();
+
+    GameObject card2 = Instantiate(Cards_Prefab, Deck_Transform);
+    card2.transform.localPosition = Vector2.zero;
+    card2.transform.localScale -= card2.transform.localScale * 0.2f;
+
+    card2.transform.SetParent(SecondSplit_Transform);
+    Sprite tempArr2 = SelectSprite(socket.ResultData.payload.hands[1].cards[1]);
+    card2.transform.DORotate(Vector3.zero, 0.3f);
+    card2.transform.DOScale(Vector3.one, 0.3f);
+    card2.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
+    {
+      card2.GetComponent<CardScript>().OnFlipMethod(tempArr2, 4, socket.ResultData.payload.hands[1].cards[1]);
+    });
   }
 
   internal void UndoBetButton()
@@ -572,7 +604,7 @@ public class BJController : MonoBehaviour
         {
           if (MainBetText_Object && MainBetText_Text)
           {
-            MainBetText_Text.text = mainBet.ToString();
+            MainBetText_Text.text = mainBet.ToString("N2");
           }
         }
         else if (mainBet == 0)
@@ -606,7 +638,7 @@ public class BJController : MonoBehaviour
         {
           if (MultiplierBetText_Object && MultiplierBetText_Text)
           {
-            MultiplierBetText_Text.text = multiplierBet.ToString();
+            MultiplierBetText_Text.text = multiplierBet.ToString("N2");
           }
         }
         else if (multiplierBet == 0)
@@ -776,11 +808,13 @@ public class BJController : MonoBehaviour
         dealerCounter++;
         break;
       case 3:
-        if (FirstSplitTotal_Text) FirstSplitTotal_Text.text = SplitPlayerNumberValue(firstplayerData[FirstSplitplayerCounter], true);
+        if(card != null) firstPlayerCards.Add(card);
+        FirstSplitTotal_Text.text = CalculateHandValue(firstPlayerCards);
         FirstSplitplayerCounter++;
         break;
       case 4:
-        if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = SplitPlayerNumberValue(secondplayerData[SecondSplitplayerCounter], false);
+        if(card!=null) secondPlayerCards.Add(card);
+        SecondSplitTotal_Text.text = CalculateHandValue(secondPlayerCards);
         SecondSplitplayerCounter++;
         break;
     }
@@ -870,7 +904,7 @@ public class BJController : MonoBehaviour
   {
     if (socket.PlayerData.balance < mainBet + multiplierBet + value)
     {
-      uiManager.ShowMaxBetPopup("Insufficient Balance!");
+      uiManager.ShowPopup("Insufficient Balance!");
       return true;
     }
     return false;
@@ -1068,10 +1102,16 @@ public class BJController : MonoBehaviour
     {
       MainBetText_Object.SetActive(false);
     }
-    if(MultiplierBetText_Object.activeSelf)
+    if (MultiplierBetText_Object.activeSelf)
     {
       MultiplierBetText_Object.SetActive(false);
     }
+  }
+
+  internal void UpdateBetText(double mainBet, double sideBet)
+  {
+    MainBetText_Text.text = mainBet.ToString("N2");
+    MultiplierBetText_Text.text = sideBet.ToString("N2");
   }
 
   internal void PlayerBust()

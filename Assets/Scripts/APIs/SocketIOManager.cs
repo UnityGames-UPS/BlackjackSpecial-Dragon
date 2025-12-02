@@ -334,6 +334,12 @@ public class SocketIOManager : MonoBehaviour
           IsResultDone = true;
           break;
         }
+      default:
+        {
+          ResultData = Data;
+          IsResultDone = true;
+          break;
+        }
     }
   }
 
@@ -408,8 +414,9 @@ public class Paytable
 [Serializable]
 public class Payload
 {
-  public List<PlayerHand> playerHands;
-  public DealerHand dealerHand;
+  public List<Hand> hands;
+  public List<Hand> playerHands;
+  public Hand dealerHand;
   public Card dealerUpCard;
   public Card card;
   public int handIndex;
@@ -428,16 +435,7 @@ public class Payload
 }
 
 [Serializable]
-public class PlayerHand
-{
-  public List<Card> cards;
-  public int value;
-  public bool isSoft;
-  public bool isBlackjack;
-}
-
-[Serializable]
-public class DealerHand
+public class Hand
 {
   public List<Card> cards;
   public int value;

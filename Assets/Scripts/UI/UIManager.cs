@@ -54,6 +54,8 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject MultBetBttn_Object;
   [SerializeField] private GameObject PlayerCardTotal_Object;
   [SerializeField] private GameObject DealerCardTotal_Object;
+  [SerializeField] private GameObject FirstSplitCardTotal_Object;
+  [SerializeField] private GameObject SecondSplitCardTotal_Object;
   [SerializeField] private GameObject ChipSelectParent_Object;
   [SerializeField] private GameObject Split_object;
   [SerializeField] private GameObject MiddleDouble_object;
@@ -85,10 +87,6 @@ public class UIManager : MonoBehaviour
   [SerializeField] private Transform ScrollParent_Transform;
   [SerializeField] private Transform Selected_Transform;
   [SerializeField] private Transform multiplierChipsParent_Transform;
-  [SerializeField] private Transform[] PDummyPos_Transform;
-  [SerializeField] private Transform[] DDummyPos_Transform;
-  [SerializeField] private Transform[] FSDummyPos_Transform;
-  [SerializeField] private Transform[] SSDummyPos_Transform;
 
   [Header("Dragon Animation Routine")]
   [SerializeField] private GameObject DragonNormal_Object;
@@ -321,7 +319,7 @@ public class UIManager : MonoBehaviour
 
   private void OnHit(bool isDouble = false)
   {
-    StartCoroutine(HitDealButton(isDouble));
+    StartCoroutine(OnHitButton(isDouble));
   }
 
   private void OnStand()
@@ -394,17 +392,24 @@ public class UIManager : MonoBehaviour
 
   private void OnSplit()
   {
-    if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
     StartCoroutine(OnSplitDeal());
   }
 
   private IEnumerator OnSplitDeal()
   {
-    if (MiddleDouble_object) MiddleDouble_object.SetActive(false);
+    ChipParent_Transform.gameObject.SetActive(false);
+    ArrPointer_Object.SetActive(false);
     if (Split_object) Split_object.SetActive(false);
-    BJmanager.SplitButton();
-    yield return new WaitUntil(() => BJmanager.isSplit);
+    if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
+    if (MiddleDouble_object.activeSelf) MiddleDouble_object.SetActive(false);
+    PlayerCardTotal_Object.SetActive(false);
+    socket.RequestEvent("SPLIT");
+    yield return new WaitUntil(()=> socket.IsResultDone);
+    yield return BJmanager.SplitButton();
+    FirstSplitCardTotal_Object.SetActive(true);
+    SecondSplitCardTotal_Object.SetActive(true);
     if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+    FirstArrPointer_Object.SetActive(true);
   }
 
   private IEnumerator OnStartDeal()
@@ -443,13 +448,6 @@ public class UIManager : MonoBehaviour
     if (BJmanager.CheckMultiplier())
     {
       yield return DragonRoutine();
-      // if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
-      // if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = X2_Sprite;
-    }
-    else
-    {
-      // if (LeftBox_Transform) LeftBox_Transform.GetChild(LeftBox_Transform.childCount - 1).SetAsFirstSibling();
-      // if (LeftBox_Transform) LeftBox_Transform.GetChild(0).GetComponent<Image>().sprite = Empty_Sprite;
     }
 
     string gameState = socket.ResultData.payload.gamePhase.ToLower();
@@ -463,12 +461,6 @@ public class UIManager : MonoBehaviour
         {
           OnStand();
         }
-        // else
-        // {
-        //   YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
-        //   if (YouWin_Object) YouWin_Object.SetActive(true);
-        //   BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
-        // }
       }
       else
       {
@@ -490,6 +482,7 @@ public class UIManager : MonoBehaviour
         YouWin_Text.text = win.ToString("N2");
         if (YouWin_Object) YouWin_Object.SetActive(true);
         BJmanager.UpdateWinnings(win);
+        BJmanager.UpdateBetText(socket.ResultData.payload.totalWin-socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
       }
       else
       {
@@ -499,10 +492,11 @@ public class UIManager : MonoBehaviour
     }
   }
 
-  private IEnumerator HitDealButton(bool isDouble)
+  private IEnumerator OnHitButton(bool isDouble)
   {
     if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
     if (Split_object && Split_object.activeSelf) Split_object.SetActive(false);
+    if (MiddleDouble_object.activeSelf) MiddleDouble_object.SetActive(false);
     if (ArrPointer_Object) ArrPointer_Object.SetActive(false);
     if (!BJmanager.isSplit)
     {
@@ -584,6 +578,7 @@ public class UIManager : MonoBehaviour
         YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
         if (YouWin_Object) YouWin_Object.SetActive(true);
         BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+        BJmanager.UpdateBetText(socket.ResultData.payload.totalWin-socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
       }
       else if (result.Contains("lose"))
       {
@@ -650,6 +645,7 @@ public class UIManager : MonoBehaviour
   internal void AddMultiplierHistory(int multiplier)
   {
     GameObject newEntry = Instantiate(HistoryPrefab, MultiplierHistoryParent);
+    newEntry.transform.SetAsFirstSibling();
     newEntry.GetComponentInChildren<TMP_Text>().text = "x" + multiplier;
 
     historyQueue.Enqueue(newEntry);
@@ -660,7 +656,6 @@ public class UIManager : MonoBehaviour
       Destroy(old);
     }
   }
-
 
   IEnumerator FireAnimationRoutine(ImageAnimation DragonAnimation)
   {
@@ -676,7 +671,7 @@ public class UIManager : MonoBehaviour
     if (InitialButtons_object) InitialButtons_object.SetActive(true);
   }
 
-  internal void ShowMaxBetPopup(string message)
+  internal void ShowPopup(string message)
   {
     Popup_Text.text = message;
     if (PopupSeq != null && PopupSeq.IsActive())
@@ -726,12 +721,14 @@ public class UIManager : MonoBehaviour
     {
       ChipContainer_Object.transform.GetChild(i).gameObject.SetActive(true);
     }
-    for(int i = 0; i<multiplierChipsParent_Transform.childCount; i++)
+    for (int i = 0; i < multiplierChipsParent_Transform.childCount; i++)
     {
       multiplierChipsParent_Transform.GetChild(i).gameObject.SetActive(true);
     }
     BJmanager.MainBetText_Object.SetActive(true);
-    BJmanager.MultiplierBetText_Object.SetActive(true);
+    if(BJmanager.multiplierBet>0)
+      BJmanager.MultiplierBetText_Object.SetActive(true);
+    BJmanager.UpdateBetText(BJmanager.mainBet, BJmanager.multiplierBet);
   }
 
   private void OpenPopup(GameObject popup)
