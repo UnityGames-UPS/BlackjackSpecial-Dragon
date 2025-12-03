@@ -22,8 +22,8 @@ public class BJController : MonoBehaviour
   [SerializeField] private Transform DealerContainer_Transform;
   [SerializeField] private Transform Deck_Transform;
   [SerializeField] private Transform EndDeck_Transform;
-  [SerializeField] private Transform FirstSplit_Transform;
-  [SerializeField] private Transform SecondSplit_Transform;
+  [SerializeField] internal Transform FirstSplit_Transform;
+  [SerializeField] internal Transform SecondSplit_Transform;
   [SerializeField] private Transform ChipsLost_Transform;
 
   [Header("Lists and Arrays")]
@@ -32,6 +32,8 @@ public class BJController : MonoBehaviour
   [SerializeField] private List<GameObject> instantiated_Coins;
   [SerializeField] private List<int> instantiated_Value;
   [SerializeField] private List<GameObject> multiplyinstantiated_Coins;
+  [SerializeField] internal List<GameObject> firstHand_Coins;
+  [SerializeField] internal List<GameObject> secondHand_Coins;
   [SerializeField] private List<int> multiplyinstantiated_Value;
   [SerializeField] internal List<string> betHistory;
 
@@ -60,8 +62,8 @@ public class BJController : MonoBehaviour
   [SerializeField] private TMP_Text Winnings_Text;
   [SerializeField] private TMP_Text PlayerTotal_Text;
   [SerializeField] private TMP_Text DealerTotal_Text;
-  [SerializeField] private TMP_Text FirstSplitTotal_Text;
-  [SerializeField] private TMP_Text SecondSplitTotal_Text;
+  [SerializeField] internal TMP_Text FirstSplitTotal_Text;
+  [SerializeField] internal TMP_Text SecondSplitTotal_Text;
 
   [Header("Test Data")]
   [SerializeField] internal bool useTestData = false;
@@ -94,8 +96,6 @@ public class BJController : MonoBehaviour
 
   private void Start()
   {
-    if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(false);
-    if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(false);
     if (MultiplierBetText_Object) MultiplierBetText_Object.SetActive(false);
     if (MainBetText_Object) MainBetText_Object.SetActive(false);
   }
@@ -412,6 +412,16 @@ public class BJController : MonoBehaviour
     {
       Destroy(coin);
     }
+    foreach (GameObject coin in firstHand_Coins)
+    {
+      Destroy(coin);
+    }
+    foreach (GameObject coin in secondHand_Coins)
+    {
+      Destroy(coin);
+    }
+    firstHand_Coins.Clear();
+    secondHand_Coins.Clear();
     instantiated_Coins.Clear();
     instantiated_Coins.TrimExcess();
     instantiated_Value.Clear();
@@ -526,8 +536,6 @@ public class BJController : MonoBehaviour
 
   internal IEnumerator SplitButton()
   {
-    if (FirstSplit_Transform) FirstSplit_Transform.gameObject.SetActive(true);
-    if (SecondSplit_Transform) SecondSplit_Transform.gameObject.SetActive(true);
     GameObject tempCard = PlayerContainer_Transform.GetChild(0).gameObject;
     tempCard.transform.SetParent(FirstSplit_Transform);
     tempCard.transform.DOLocalMove(new Vector2(0, 0), 0.3f);
@@ -537,13 +545,15 @@ public class BJController : MonoBehaviour
     tempCard.transform.DOLocalMove(new Vector2(0, 0), 0.3f);
     tempCard.transform.DOScale(Vector3.one, 0.3f);
 
-    firstPlayerCards.Add(socket.ResultData.payload.hands[0].cards[0]);
-    secondPlayerCards.Add(socket.ResultData.payload.hands[1].cards[0]);
+    List<Hand> playerHands = socket.ResultData.id.ToLower().Contains("gameresult") ?
+      socket.ResultData.payload.playerHands :
+      socket.ResultData.payload.hands;
+
+    firstPlayerCards.Add(playerHands[0].cards[0]);
+    secondPlayerCards.Add(playerHands[1].cards[0]);
     if (FirstSplitTotal_Text) FirstSplitTotal_Text.text = CalculateHandValue(firstPlayerCards);
     if (SecondSplitTotal_Text) SecondSplitTotal_Text.text = CalculateHandValue(secondPlayerCards);
 
-    FirstSplitplayerCounter++;
-    SecondSplitplayerCounter++;
     // if (PlayerContainer_Transform) PlayerContainer_Transform.gameObject.SetActive(false);
     isSplit = true;
     isFirstSplit = true;
@@ -553,12 +563,12 @@ public class BJController : MonoBehaviour
     card.transform.localScale -= card.transform.localScale * 0.2f;
 
     card.transform.SetParent(FirstSplit_Transform);
-    Sprite tempArr = SelectSprite(socket.ResultData.payload.hands[0].cards[1]);
+    Sprite tempArr = SelectSprite(playerHands[0].cards[1]);
     card.transform.DOScale(Vector3.one, 0.3f);
     card.transform.DOLocalRotate(Vector3.zero, 0.3f);
     yield return card.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
     {
-      card.GetComponent<CardScript>().OnFlipMethod(tempArr, 3, socket.ResultData.payload.hands[0].cards[1]);
+      card.GetComponent<CardScript>().OnFlipMethod(tempArr, 3, playerHands[0].cards[1]);
     }).WaitForCompletion();
 
     GameObject card2 = Instantiate(Cards_Prefab, Deck_Transform);
@@ -566,12 +576,12 @@ public class BJController : MonoBehaviour
     card2.transform.localScale -= card2.transform.localScale * 0.2f;
 
     card2.transform.SetParent(SecondSplit_Transform);
-    Sprite tempArr2 = SelectSprite(socket.ResultData.payload.hands[1].cards[1]);
+    Sprite tempArr2 = SelectSprite(playerHands[1].cards[1]);
     card2.transform.DORotate(Vector3.zero, 0.3f);
     card2.transform.DOScale(Vector3.one, 0.3f);
     yield return card2.transform.DOLocalMove(new Vector2(0, 0), 0.3f).OnComplete(delegate
     {
-      card2.GetComponent<CardScript>().OnFlipMethod(tempArr2, 4, socket.ResultData.payload.hands[1].cards[1]);
+      card2.GetComponent<CardScript>().OnFlipMethod(tempArr2, 4, playerHands[1].cards[1]);
     }).WaitForCompletion();
   }
 
@@ -756,7 +766,7 @@ public class BJController : MonoBehaviour
       card.transform.SetParent(FirstSplit_Transform);
     else
       card.transform.SetParent(SecondSplit_Transform);
-    
+
     Sprite sprite = SelectSprite(CardData);
 
     card.transform.DOScale(Vector3.one, 0.3f);
@@ -772,27 +782,14 @@ public class BJController : MonoBehaviour
     switch (value)
     {
       case 1:
-        if (useTestData)
-        {
-          if (PlayerTotal_Text) PlayerTotal_Text.text = PlayerNumberTestValue(playerData[playerCounter]);
-        }
-        else
-        {
-          if (card != null) playerCards.Add(card);
-          if (PlayerTotal_Text) PlayerTotal_Text.text = CalculateHandValue(playerCards);
-        }
+
+        if (card != null) playerCards.Add(card);
+        if (PlayerTotal_Text) PlayerTotal_Text.text = CalculateHandValue(playerCards);
         playerCounter++;
         break;
       case 2:
-        if (useTestData)
-        {
-          if (DealerTotal_Text) DealerTotal_Text.text = DealerNumberTestValue(dealerData[dealerCounter]);
-        }
-        else
-        {
-          if (card != null) dealerCards.Add(card);
-          if (DealerTotal_Text) DealerTotal_Text.text = CalculateHandValue(dealerCards);
-        }
+        if (card != null) dealerCards.Add(card);
+        if (DealerTotal_Text) DealerTotal_Text.text = CalculateHandValue(dealerCards);
         dealerCounter++;
         break;
       case 3:
@@ -1068,6 +1065,7 @@ public class BJController : MonoBehaviour
   {
     foreach (GameObject coin in instantiated_Coins)
     {
+      if (!coin.activeSelf) continue;
       Vector3 initPos = coin.transform.position;
       coin.transform.DOMove(ChipsLost_Transform.position, 0.3f).OnComplete(() =>
       {
@@ -1093,6 +1091,28 @@ public class BJController : MonoBehaviour
     if (MultiplierBetText_Object.activeSelf)
     {
       MultiplierBetText_Object.SetActive(false);
+    }
+  }
+
+  internal void LostFirstHandChips()
+  {
+    foreach (GameObject coin in firstHand_Coins)
+    {
+      coin.transform.DOMove(ChipsLost_Transform.position, 0.3f).OnComplete(() =>
+      {
+        coin.SetActive(false);
+      });
+    }
+  }
+
+  internal void LostSecondHandChips()
+  {
+    foreach (GameObject coin in secondHand_Coins)
+    {
+      coin.transform.DOMove(ChipsLost_Transform.position, 0.3f).OnComplete(() =>
+      {
+        coin.SetActive(false);
+      });
     }
   }
 

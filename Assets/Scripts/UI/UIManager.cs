@@ -66,6 +66,7 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject FirstArrPointer_Object;
   [SerializeField] private GameObject SecondArrPointer_Object;
   [SerializeField] private GameObject PlayerBlackjack_Object;
+  [SerializeField] private GameObject DealerBlackjack_Object;
   [SerializeField] private GameObject YouWin_Object;
 
   [SerializeField] private GameObject QuitPopup_Object;
@@ -75,6 +76,8 @@ public class UIManager : MonoBehaviour
   [SerializeField] private GameObject DisconnectPopup_Object;
 
   [SerializeField] private CanvasGroup Popup_CG;
+  [SerializeField] private TMP_Text FirstHandBet_Text;
+  [SerializeField] private TMP_Text SecondHandBet_Text;
   [SerializeField] private TMP_Text Popup_Text;
   [SerializeField] private TMP_Text YouWin_Text;
   [SerializeField] private TMP_Text XMultiplier_Text;
@@ -84,6 +87,8 @@ public class UIManager : MonoBehaviour
 
 
   [Header("Transforms")]
+  [SerializeField] private Transform FirstHandChipContainer;
+  [SerializeField] private Transform SecondHandChipContainer;
   [SerializeField] private Transform ScrollParent_Transform;
   [SerializeField] private Transform Selected_Transform;
   [SerializeField] private Transform multiplierChipsParent_Transform;
@@ -317,9 +322,9 @@ public class UIManager : MonoBehaviour
     BJmanager.TryDoubleBet();
   }
 
-  private void OnHit(bool isDouble = false)
+  private void OnHit()
   {
-    StartCoroutine(OnHitButton(isDouble));
+    StartCoroutine(OnHitCoroutine());
   }
 
   private void OnStand()
@@ -378,6 +383,23 @@ public class UIManager : MonoBehaviour
     OnDeal();
   }
 
+  private void ToggleSplitHandBet()
+  {
+    string bet = BJmanager.mainBet.ToString("N2");
+    FirstHandBet_Text.text = bet;
+    SecondHandBet_Text.text = bet;
+    Instantiate(ChipContainer_Object, FirstHandChipContainer, false);
+    foreach (Transform child in FirstHandChipContainer.GetChild(0).GetComponentsInChildren<Transform>())
+    {
+      BJmanager.firstHand_Coins.Add(child.gameObject);
+    }
+    Instantiate(ChipContainer_Object, SecondHandChipContainer, false);
+    foreach (Transform child in SecondHandChipContainer.GetChild(0).GetComponentsInChildren<Transform>())
+    {
+      BJmanager.secondHand_Coins.Add(child.gameObject);
+    }
+  }
+
   private void OnSplit()
   {
     StartCoroutine(OnSplitDealCoroutine());
@@ -402,18 +424,110 @@ public class UIManager : MonoBehaviour
     if (MiddleDouble_object.activeSelf) MiddleDouble_object.SetActive(false);
     PlayerCardTotal_Object.SetActive(false);
     yield return BJmanager.SplitButton();
+    ToggleSplitHandBet();
     FirstSplitCardTotal_Object.SetActive(true);
     SecondSplitCardTotal_Object.SetActive(true);
 
-    if (socket.ResultData.payload.isAceSplit)
+    if (!socket.ResultData.id.ToLower().Contains("gameresult"))
     {
-      BJmanager.isFirstSplit = false;
-      OnStand();
+      if (socket.ResultData.payload.isAceSplit)
+      {
+        FirstArrPointer_Object.SetActive(false);
+        SecondArrPointer_Object.SetActive(false);
+        BJmanager.isFirstSplit = false;
+        OnStand();
+      }
+      else if (socket.ResultData.payload.currentHandIndex == 0)
+      {
+        BJmanager.isFirstSplit = true;
+        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+        FirstArrPointer_Object.SetActive(true);
+        SecondArrPointer_Object.SetActive(false);
+      }
+      else
+      {
+        BJmanager.isFirstSplit = false;
+        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+        FirstArrPointer_Object.SetActive(false);
+        SecondArrPointer_Object.SetActive(true);
+      }
     }
     else
     {
-      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-      FirstArrPointer_Object.SetActive(true);
+      BJmanager.isFlippin = true;
+      BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+      if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+      {
+        for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+        {
+          BJmanager.isFlippin = true;
+          BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+          yield return new WaitUntil(() => !BJmanager.isFlippin);
+        }
+      }
+
+      BJmanager.UpdateBalance(socket.ResultData.player.balance);
+      BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      HandResult FirstHandResult = socket.ResultData.payload.handResults[0];
+      string FirstResult = FirstHandResult.result.ToLower();
+      BJmanager.FirstSplitTotal_Text.text = FirstHandResult.handValue.ToString();
+      BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+      if (FirstResult.Contains("win"))
+      {
+        YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+        if (YouWin_Object) YouWin_Object.SetActive(true);
+        BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+        FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
+      }
+      else if (FirstResult.Contains("lose"))
+      {
+        BJmanager.LostFirstHandChips();
+      }
+
+      if (FirstResult.Contains("push"))
+      {
+        BJmanager.FirstSplitTotal_Text.text = "PUSH " + BJmanager.FirstSplitTotal_Text.text;
+      }
+      else if (FirstResult.Contains("bust"))
+      {
+        BJmanager.FirstSplitTotal_Text.text = "BUST " + BJmanager.FirstSplitTotal_Text.text;
+      }
+
+      HandResult SecondHandResult = socket.ResultData.payload.handResults[1];
+      string SecondResult = SecondHandResult.result.ToLower();
+      BJmanager.SecondSplitTotal_Text.text = SecondHandResult.handValue.ToString();
+      if (SecondResult.Contains("win"))
+      {
+        YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+        if (YouWin_Object) YouWin_Object.SetActive(true);
+        BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+        SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
+      }
+      else if (SecondResult.Contains("lose"))
+      {
+        BJmanager.LostSecondHandChips();
+      }
+
+      if (SecondResult.Contains("push"))
+      {
+        BJmanager.SecondSplitTotal_Text.text = "PUSH " + BJmanager.SecondSplitTotal_Text.text;
+      }
+      else if (SecondResult.Contains("bust"))
+      {
+        BJmanager.SecondSplitTotal_Text.text = "BUST " + BJmanager.SecondSplitTotal_Text.text;
+      }
+
+
+      if (socket.ResultData.payload.dealerHand.isBust)
+      {
+        BJmanager.DealerBust();
+      }
+      if (socket.ResultData.payload.dealerHand.isBlackjack)
+      {
+        DealerBlackjack_Object.SetActive(true);
+      }
+
+      if (RebetButtons_object) RebetButtons_object.SetActive(true);
     }
   }
 
@@ -497,7 +611,7 @@ public class UIManager : MonoBehaviour
     }
   }
 
-  private IEnumerator OnHitButton(bool isDouble)
+  private IEnumerator OnHitCoroutine()
   {
     if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
     if (Split_object && Split_object.activeSelf) Split_object.SetActive(false);
@@ -507,35 +621,176 @@ public class UIManager : MonoBehaviour
     yield return new WaitUntil(() => socket.IsResultDone);
     if (!BJmanager.isSplit)
     {
+      string result = socket.ResultData.id.ToLower();
+
       BJmanager.isFlippin = true;
-      BJmanager.OnPlayerDealButton(socket.ResultData.payload.card);
+      BJmanager.OnPlayerDealButton(!result.Contains("gameresult") ? socket.ResultData.payload.card : socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
 
-      if (socket.ResultData.payload.isBust)
+      if (result.Contains("gameresult") && socket.ResultData.payload.handResults[0].result.ToLower().Contains("bust"))
       {
+
+        BJmanager.isFlippin = true;
+        BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+        if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+        {
+          for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+          {
+            BJmanager.isFlippin = true;
+            BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+            yield return new WaitUntil(() => !BJmanager.isFlippin);
+          }
+        }
+
         BJmanager.PlayerBust();
         RebetButtons_object.SetActive(true);
+        BJmanager.UpdateBalance(socket.ResultData.player.balance);
         yield break;
       }
 
-      if (isDouble)
-      {
-        OnStand();
-      }
-      else
-      {
-        if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
-        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
-      }
+      if (ArrPointer_Object) ArrPointer_Object.SetActive(true);
+      if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
     }
     else
     {
-      BJmanager.isFlippin = true;
-      BJmanager.OnSplitDealButton(socket.ResultData.payload.card);
-      yield return new WaitUntil(() => !BJmanager.isFlippin);
-      if (!socket.ResultData.payload.isBust && !BJmanager.isFirstSplit)
+      Card PlayerCard = new();
+      bool isGameCompleted = false;
+      if (socket.ResultData.payload.gamePhase.ToLower().Contains("completed"))
       {
-        if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+        isGameCompleted = true;
+        PlayerCard = socket.ResultData.payload.playerHands[1].cards[BJmanager.FirstSplitplayerCounter];
+      }
+      else
+      {
+        PlayerCard = socket.ResultData.payload.card;
+        if (socket.ResultData.payload.isBust && !BJmanager.isFirstSplit)
+        {
+          isGameCompleted = true;
+        }
+      }
+
+      BJmanager.isFlippin = true;
+      BJmanager.OnSplitDealButton(PlayerCard);
+      yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+      if (isGameCompleted)
+      {
+        if (!socket.ResultData.id.ToLower().Contains("gameresult"))
+        {
+          if (socket.ResultData.payload.isBust)
+          {
+            BJmanager.SecondSplitTotal_Text.text = "BUST " + socket.ResultData.payload.handValue;
+          }
+        }
+        else
+        {
+          BJmanager.isFlippin = true;
+          BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+          yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+          if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+          {
+            for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+            {
+              BJmanager.isFlippin = true;
+              BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+              yield return new WaitUntil(() => !BJmanager.isFlippin);
+            }
+          }
+
+          BJmanager.UpdateBalance(socket.ResultData.player.balance);
+          BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+          HandResult FirstHandResult = socket.ResultData.payload.handResults[0];
+          string FirstResult = FirstHandResult.result.ToLower();
+          BJmanager.FirstSplitTotal_Text.text = FirstHandResult.handValue.ToString();
+          BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+          if (FirstResult.Contains("win"))
+          {
+            YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+            if (YouWin_Object) YouWin_Object.SetActive(true);
+            BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+            FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
+          }
+          else if (FirstResult.Contains("lose"))
+          {
+            BJmanager.LostFirstHandChips();
+          }
+
+          if (FirstResult.Contains("push"))
+          {
+            BJmanager.FirstSplitTotal_Text.text = "PUSH " + BJmanager.FirstSplitTotal_Text.text;
+          }
+          else if (FirstResult.Contains("bust"))
+          {
+            BJmanager.FirstSplitTotal_Text.text = "BUST " + BJmanager.FirstSplitTotal_Text.text;
+          }
+
+          HandResult SecondHandResult = socket.ResultData.payload.handResults[1];
+          string SecondResult = SecondHandResult.result.ToLower();
+          BJmanager.SecondSplitTotal_Text.text = SecondHandResult.handValue.ToString();
+          if (SecondResult.Contains("win"))
+          {
+            YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+            if (YouWin_Object) YouWin_Object.SetActive(true);
+            BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+            SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
+          }
+          else if (SecondResult.Contains("lose"))
+          {
+            BJmanager.LostSecondHandChips();
+          }
+
+          if (SecondResult.Contains("push"))
+          {
+            BJmanager.SecondSplitTotal_Text.text = "PUSH " + BJmanager.SecondSplitTotal_Text.text;
+          }
+          else if (SecondResult.Contains("bust"))
+          {
+            BJmanager.SecondSplitTotal_Text.text = "BUST " + BJmanager.SecondSplitTotal_Text.text;
+          }
+
+
+          if (socket.ResultData.payload.dealerHand.isBust)
+          {
+            BJmanager.DealerBust();
+          }
+          if (socket.ResultData.payload.dealerHand.isBlackjack)
+          {
+            DealerBlackjack_Object.SetActive(true);
+          }
+
+          if (RebetButtons_object) RebetButtons_object.SetActive(true);
+
+        }
+      }
+      else
+      {
+        if (BJmanager.isFirstSplit)
+        {
+          if (socket.ResultData.payload.isBust)
+          {
+            BJmanager.isFirstSplit = false;
+            BJmanager.FirstSplitTotal_Text.text = "BUST " + socket.ResultData.payload.handValue;
+            FirstArrPointer_Object.SetActive(false);
+            SecondArrPointer_Object.SetActive(true);
+          }
+          if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+        }
+        else
+        {
+          if (socket.ResultData.payload.handValue == 21)
+          {
+            FirstArrPointer_Object.SetActive(false);
+            SecondArrPointer_Object.SetActive(false);
+            OnStand();
+          }
+          else
+          {
+            MiddleButtons_object.SetActive(true);
+          }
+        }
       }
     }
   }
@@ -544,10 +799,10 @@ public class UIManager : MonoBehaviour
   {
     if (ArrPointer_Object && ArrPointer_Object.activeInHierarchy) ArrPointer_Object.SetActive(false);
     if (MiddleButtons_object) MiddleButtons_object.SetActive(false);
+    socket.RequestEvent("STAND");
+    yield return new WaitUntil(() => socket.IsResultDone);
     if (!BJmanager.isSplit)
     {
-      socket.RequestEvent("STAND");
-      yield return new WaitUntil(() => socket.IsResultDone);
       BJmanager.isFlippin = true;
       BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
@@ -594,12 +849,12 @@ public class UIManager : MonoBehaviour
     {
       BJmanager.isFirstSplit = false;
       if (MiddleButtons_object) MiddleButtons_object.SetActive(true);
+      FirstArrPointer_Object.SetActive(false);
+      SecondArrPointer_Object.SetActive(true);
     }
     else
     {
       BJmanager.isSplit = false;
-      socket.RequestEvent("STAND");
-      yield return new WaitUntil(() => socket.IsResultDone);
       BJmanager.isFlippin = true;
       BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
       yield return new WaitUntil(() => !BJmanager.isFlippin);
@@ -615,29 +870,64 @@ public class UIManager : MonoBehaviour
       }
 
       BJmanager.UpdateBalance(socket.ResultData.player.balance);
-      // string result = socket.ResultData.payload.handResults[0].result.ToLower();
+      BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+      HandResult FirstHandResult = socket.ResultData.payload.handResults[0];
+      string FirstResult = FirstHandResult.result.ToLower();
+      BJmanager.FirstSplitTotal_Text.text = FirstHandResult.handValue.ToString();
+      BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+      if (FirstResult.Contains("win"))
+      {
+        YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+        if (YouWin_Object) YouWin_Object.SetActive(true);
+        BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+        FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
+      }
+      else if (FirstResult.Contains("lose"))
+      {
+        BJmanager.LostFirstHandChips();
+      }
 
-      // if (result.Contains("push"))
-      // {
-      //   BJmanager.PlayerPush();
-      //   BJmanager.UpdateWinnings(socket.ResultData.payload.handResults[0].payout);
-      // }
-      // else if (result.Contains("win"))
-      // {
-      //   YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
-      //   if (YouWin_Object) YouWin_Object.SetActive(true);
-      //   BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
-      //   // BJmanager.UpdateBetText(socket.ResultData.payload.totalWin - socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
-      // }
-      // else if (result.Contains("lose"))
-      // {
-      //   BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
-      //   BJmanager.LostChipsAnimation();
-      // }
+      if (FirstResult.Contains("push"))
+      {
+        BJmanager.FirstSplitTotal_Text.text = "PUSH " + BJmanager.FirstSplitTotal_Text.text;
+      }
+      else if (FirstResult.Contains("bust"))
+      {
+        BJmanager.FirstSplitTotal_Text.text = "BUST " + BJmanager.FirstSplitTotal_Text.text;
+      }
+
+      HandResult SecondHandResult = socket.ResultData.payload.handResults[1];
+      string SecondResult = SecondHandResult.result.ToLower();
+      BJmanager.SecondSplitTotal_Text.text = SecondHandResult.handValue.ToString();
+      if (SecondResult.Contains("win"))
+      {
+        YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+        if (YouWin_Object) YouWin_Object.SetActive(true);
+        BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+        SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
+      }
+      else if (SecondResult.Contains("lose"))
+      {
+        BJmanager.LostSecondHandChips();
+      }
+
+      if (SecondResult.Contains("push"))
+      {
+        BJmanager.SecondSplitTotal_Text.text = "PUSH " + BJmanager.SecondSplitTotal_Text.text;
+      }
+      else if (SecondResult.Contains("bust"))
+      {
+        BJmanager.SecondSplitTotal_Text.text = "BUST " + BJmanager.SecondSplitTotal_Text.text;
+      }
+
 
       if (socket.ResultData.payload.dealerHand.isBust)
       {
         BJmanager.DealerBust();
+      }
+      if (socket.ResultData.payload.dealerHand.isBlackjack)
+      {
+        DealerBlackjack_Object.SetActive(true);
       }
 
       if (RebetButtons_object) RebetButtons_object.SetActive(true);
@@ -743,6 +1033,14 @@ public class UIManager : MonoBehaviour
 
   private void ResetUI()
   {
+    Destroy(FirstHandChipContainer.GetChild(0).gameObject);
+    Destroy(SecondHandChipContainer.GetChild(0).gameObject);
+    ArrPointer_Object.SetActive(false);
+    FirstArrPointer_Object.SetActive(false);
+    SecondArrPointer_Object.SetActive(false);
+    FirstSplitCardTotal_Object.SetActive(false);
+    SecondSplitCardTotal_Object.SetActive(false);
+    DealerBlackjack_Object.SetActive(false);
     if (PlayerBlackjack_Object.activeInHierarchy) PlayerBlackjack_Object.SetActive(false);
     if (YouWin_Object.activeInHierarchy) YouWin_Object.SetActive(false);
     BJmanager.UpdateWinnings(0);
