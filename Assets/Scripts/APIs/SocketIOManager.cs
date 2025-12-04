@@ -346,7 +346,8 @@ public class SocketIOManager : MonoBehaviour
       payload = new ReqPayload
       {
         mainBet = bJController.mainBet,
-        sideBet = bJController.multiplierBet
+        sideBet = bJController.multiplierBet,
+        accept = true
       }
     };
 
@@ -367,6 +368,7 @@ public class ReqPayload
 {
   public int mainBet;
   public int sideBet;
+  public bool accept = true;
 }
 
 [Serializable]
@@ -416,6 +418,7 @@ public class Payload
   public double totalWin;
   public int sideBetWin;
   public int insuranceWin;
+  public double insuranceBet;
 }
 
 [Serializable]
