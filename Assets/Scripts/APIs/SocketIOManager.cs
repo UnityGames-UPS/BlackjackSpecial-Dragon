@@ -417,7 +417,7 @@ public class Payload
   public List<HandResult> handResults;
   public double totalWin;
   public int sideBetWin;
-  public int insuranceWin;
+  public double insuranceWin;
   public double insuranceBet;
 }
 

@@ -565,6 +565,9 @@ public class UIManager : MonoBehaviour
       if (SecondResult.Contains("bust"))
         BJmanager.SecondSplitTotal_Text.text = "BUST " + SecondHandResult.handValue;
 
+      if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+        InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
       if (socket.ResultData.payload.dealerHand.isBlackjack)
         SafeSetActive(DealerBlackjack_Object, true);
 
@@ -648,6 +651,9 @@ public class UIManager : MonoBehaviour
       {
         BJmanager.LostChipsAnimation();
       }
+      if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+        InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
       SafeSetActive(RebetButtons_object, true);
     }
   }
@@ -687,12 +693,15 @@ public class UIManager : MonoBehaviour
           }
         }
 
+        if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+          InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
         SafeSetActive(RebetButtons_object, true);
         BJmanager.UpdateBalance(socket.ResultData.player.balance);
         yield break;
       }
 
-      if(socket.ResultData.payload.handValue == 21)
+      if (socket.ResultData.payload.handValue == 21)
       {
         OnStand();
         yield break;
@@ -789,6 +798,10 @@ public class UIManager : MonoBehaviour
           if (SecondResult.Contains("bust"))
             BJmanager.SecondSplitTotal_Text.text = "BUST " + SecondHandResult.handValue;
           if (socket.ResultData.payload.dealerHand.isBlackjack) SafeSetActive(DealerBlackjack_Object, true);
+
+          if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+            InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
           SafeSetActive(RebetButtons_object, true);
         }
       }
@@ -846,6 +859,7 @@ public class UIManager : MonoBehaviour
         }
       }
 
+
       BJmanager.UpdateBalance(socket.ResultData.player.balance);
       string result = socket.ResultData.payload.handResults[0].result.ToLower();
 
@@ -867,6 +881,9 @@ public class UIManager : MonoBehaviour
         BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
         BJmanager.LostChipsAnimation();
       }
+
+      if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+        InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
 
       SafeSetActive(RebetButtons_object, true);
     }
@@ -946,6 +963,9 @@ public class UIManager : MonoBehaviour
         if (socket.ResultData.payload.dealerHand.isBlackjack)
           SafeSetActive(DealerBlackjack_Object, true);
 
+        if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+          InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
         SafeSetActive(RebetButtons_object, true);
       }
     }
@@ -1016,6 +1036,9 @@ public class UIManager : MonoBehaviour
       if (socket.ResultData.payload.dealerHand.isBlackjack)
         SafeSetActive(DealerBlackjack_Object, true);
 
+      if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+        InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
       SafeSetActive(RebetButtons_object, true);
     }
   }
@@ -1035,6 +1058,8 @@ public class UIManager : MonoBehaviour
     {
       InsuranceTotal_Text.text = socket.ResultData.payload.insuranceBet.ToString("N2");
       Insurance_Object.SetActive(true);
+      BJmanager.UpdateBalance(socket.PlayerData.balance);
+      BJmanager.TotalBet_Text.text = (BJmanager.mainBet + BJmanager.multiplierBet + socket.ResultData.payload.insuranceBet).ToString("N2");
     }
   }
 
@@ -1160,6 +1185,7 @@ public class UIManager : MonoBehaviour
 
   private void ResetUI()
   {
+    SafeSetActive(Insurance_Object, false);
     // Destroy chip containers and reset pointers & UI
     if (FirstHandChipContainer.childCount > 0)
       Destroy(FirstHandChipContainer.GetChild(0).gameObject);
