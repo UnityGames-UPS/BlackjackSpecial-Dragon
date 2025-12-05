@@ -430,7 +430,7 @@ MonoBehaviour:
   UiManager: {fileID: 1141078115}
   JSManager: {fileID: 1381509618}
   TestSocketURI: http://localhost:5000/
-  TestToken: f49a5761d2d14fb987d69fea91b23667
+  TestToken: 02705cbc08934f9583f186890de31555
   RaycastBlocker: {fileID: 1623683830}
 --- !u!4 &43691434
 Transform:
@@ -11363,7 +11363,7 @@ MonoBehaviour:
   UndoBet_Button: {fileID: 781049928}
   Deal_Button: {fileID: 1574085981}
   ClearBet_Button: {fileID: 1396012229}
-  DoubleBet_Button: {fileID: 1580085219}
+  StartDoubleBet_Button: {fileID: 1580085219}
   MainBet_Button: {fileID: 1322084256}
   MultiplierBet_Button: {fileID: 1952712238}
   Quit_Button: {fileID: 794033086}
@@ -11376,7 +11376,7 @@ MonoBehaviour:
   BlackBackground_Button: {fileID: 1308183020}
   Hit_Button: {fileID: 1982922540}
   Stand_button: {fileID: 892063111}
-  InitDouble_Button: {fileID: 347027998}
+  MidDouble_Button: {fileID: 347027998}
   Split_Button: {fileID: 524314541}
   Rebet_Button: {fileID: 762802297}
   RebetDeal_Button: {fileID: 1332308915}

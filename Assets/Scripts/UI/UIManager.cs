@@ -20,7 +20,7 @@ public class UIManager : MonoBehaviour
   [SerializeField] private Button UndoBet_Button;
   [SerializeField] private Button Deal_Button;
   [SerializeField] private Button ClearBet_Button;
-  [SerializeField] private Button DoubleBet_Button;
+  [SerializeField] private Button StartDoubleBet_Button;
   [SerializeField] private Button MainBet_Button;
   [SerializeField] private Button MultiplierBet_Button;
   [SerializeField] private Button Quit_Button;
@@ -35,7 +35,7 @@ public class UIManager : MonoBehaviour
   [Header("Middle Buttons")]
   [SerializeField] private Button Hit_Button;
   [SerializeField] private Button Stand_button;
-  [SerializeField] private Button InitDouble_Button;
+  [SerializeField] private Button MidDouble_Button;
   [SerializeField] private Button Split_Button;
 
   [Header("Rebet Buttons")]
@@ -174,8 +174,8 @@ public class UIManager : MonoBehaviour
     AddListenerSafe(ClearBet_Button, OnClear);
     AddListenerSafe(UndoBet_Button, OnUndo);
     AddListenerSafe(Rebet_Button, OnRebet);
-    AddListenerSafe(DoubleBet_Button, OnInitialDouble);
-    AddListenerSafe(InitDouble_Button, OnInitDoubleButton);
+    AddListenerSafe(StartDoubleBet_Button, OnStartDouble);
+    AddListenerSafe(MidDouble_Button, CheckDoublePopup);
     AddListenerSafe(RebetDeal_Button, OnRebetDeal);
     AddListenerSafe(RebetDouble_Button, OnRebetDouble);
     AddListenerSafe(Split_Button, ConfirmSplit);
@@ -352,7 +352,7 @@ public class UIManager : MonoBehaviour
     }
   }
 
-  private void OnInitialDouble()
+  private void OnStartDouble()
   {
     BJmanager.TryDoubleBet();
   }
@@ -367,9 +367,27 @@ public class UIManager : MonoBehaviour
     StartCoroutine(OnStandCoroutine());
   }
 
-  private void OnInitDoubleButton()
+  void CheckDoublePopup()
   {
-    SafeSetActive(ArrPointer_Object, false);
+    if (BJmanager.isSplit)
+    {
+      StartCoroutine(OnDoubleCoroutine());
+      return;
+    }
+
+    if (ActionPopup.ShouldSkip(PopupType.Double))
+    {
+      StartCoroutine(OnDoubleCoroutine());
+      return;
+    }
+
+    string msg = "DOUBLING DOWN REQUIRES DOUBLING\nMAIN AND SIDE BET";
+    actionPopup.Show(
+      msg,
+      PopupType.Double,
+      () => StartCoroutine(OnDoubleCoroutine()),
+      () => Debug.Log("Refused Double")
+    );
   }
 
   private void OnRebet()
@@ -399,8 +417,6 @@ public class UIManager : MonoBehaviour
     SafeSetActive(MainBetButton_Object, true);
     SafeSetActive(MultBetBttn_Object, true);
     SafeSetActive(ChipSelectParent_Object, true);
-    SafeSetActive(PlayerCardTotal_Object, false);
-    SafeSetActive(DealerCardTotal_Object, false);
     SafeSetActive(InitialButtons_object, true);
   }
 
@@ -487,6 +503,10 @@ public class UIManager : MonoBehaviour
         SafeSetActive(MiddleButtons_object, true);
         SafeSetActive(FirstArrPointer_Object, true);
         SafeSetActive(SecondArrPointer_Object, false);
+        if (BJmanager.FirstSplitplayerCounter == 2)
+        {
+          SafeSetActive(MiddleDouble_object, true);
+        }
       }
       else
       {
@@ -494,6 +514,10 @@ public class UIManager : MonoBehaviour
         SafeSetActive(MiddleButtons_object, true);
         SafeSetActive(FirstArrPointer_Object, false);
         SafeSetActive(SecondArrPointer_Object, true);
+        if (BJmanager.SecondSplitplayerCounter == 2)
+        {
+          SafeSetActive(MiddleDouble_object, true);
+        }
       }
     }
     else
@@ -532,7 +556,7 @@ public class UIManager : MonoBehaviour
         FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
         SetFirstSplitBGWin();
       }
-      else if (FirstResult.Contains("lose"))
+      else if (FirstResult.Contains("lose") || FirstResult.Contains("bust"))
       {
         BJmanager.LostFirstHandChips();
       }
@@ -551,7 +575,7 @@ public class UIManager : MonoBehaviour
         SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
         SetSecondSplitBGWin();
       }
-      else if (SecondResult.Contains("lose"))
+      else if (SecondResult.Contains("lose") || SecondResult.Contains("bust"))
       {
         BJmanager.LostSecondHandChips();
       }
@@ -628,13 +652,15 @@ public class UIManager : MonoBehaviour
       {
         SafeSetActive(ArrPointer_Object, true);
         SafeSetActive(Split_object, socket.ResultData.payload.canSplit);
-        SafeSetActive(InitDouble_Button.gameObject, socket.ResultData.payload.canDouble);
+        SafeSetActive(MidDouble_Button.gameObject, socket.ResultData.payload.canDouble);
         CheckInsurance(socket.ResultData.payload.canInsure);
         SafeSetActive(MiddleButtons_object, true);
       }
     }
     else if (gameState.Contains("completed"))
     {
+      BJmanager.SetPlayerValue(socket.ResultData.payload.handResults[0].handValue);
+      BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
       double win = socket.ResultData.payload.totalWin;
       if (win > 0)
       {
@@ -653,6 +679,9 @@ public class UIManager : MonoBehaviour
       }
       if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
         InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
+      if (socket.ResultData.payload.dealerHand.isBlackjack)
+        SafeSetActive(DealerBlackjack_Object, true);
 
       SafeSetActive(RebetButtons_object, true);
     }
@@ -693,11 +722,21 @@ public class UIManager : MonoBehaviour
           }
         }
 
+        BJmanager.UpdateBalance(socket.ResultData.player.balance);
+        BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+
+        BJmanager.SetPlayerValue(socket.ResultData.payload.handResults[0].handValue);
+        BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+
         if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
           InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
 
+        if (socket.ResultData.payload.dealerHand.isBlackjack)
+          SafeSetActive(DealerBlackjack_Object, true);
+
+        BJmanager.LostChipsAnimation();
+
         SafeSetActive(RebetButtons_object, true);
-        BJmanager.UpdateBalance(socket.ResultData.player.balance);
         yield break;
       }
 
@@ -768,7 +807,7 @@ public class UIManager : MonoBehaviour
             FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
             SetFirstSplitBGWin();
           }
-          else if (FirstResult.Contains("lose"))
+          else if (FirstResult.Contains("lose") && FirstResult.Contains("bust"))
             BJmanager.LostFirstHandChips();
 
           if (FirstResult.Contains("push"))
@@ -786,7 +825,7 @@ public class UIManager : MonoBehaviour
             SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
             SetSecondSplitBGWin();
           }
-          else if (SecondResult.Contains("lose"))
+          else if (SecondResult.Contains("lose") || SecondResult.Contains("bust"))
             BJmanager.LostSecondHandChips();
 
           if (SecondResult.Contains("push"))
@@ -811,11 +850,22 @@ public class UIManager : MonoBehaviour
         {
           if (socket.ResultData.payload.isBust)
           {
+            if (BJmanager.SecondSplitplayerCounter == 2)
+            {
+              SafeSetActive(MiddleDouble_object, true);
+            }
             BJmanager.isFirstSplit = false;
             SafeSetActive(FirstArrPointer_Object, false);
             SafeSetActive(SecondArrPointer_Object, true);
           }
-          SafeSetActive(MiddleButtons_object, true);
+          if (socket.ResultData.payload.handValue == 21)
+          {
+            OnStand();
+          }
+          else
+          {
+            SafeSetActive(MiddleButtons_object, true);
+          }
         }
         else
         {
@@ -859,29 +909,30 @@ public class UIManager : MonoBehaviour
         }
       }
 
-
+      BJmanager.SetPlayerValue(socket.ResultData.payload.handResults[0].handValue);
+      BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
       BJmanager.UpdateBalance(socket.ResultData.player.balance);
       string result = socket.ResultData.payload.handResults[0].result.ToLower();
+      BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
 
       if (result.Contains("push"))
       {
         BJmanager.PlayerPush();
-        BJmanager.UpdateWinnings(socket.ResultData.payload.handResults[0].payout);
       }
       else if (result.Contains("win"))
       {
         YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
         SafeSetActive(YouWin_Object, true);
-        BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
         BJmanager.UpdateBetText(socket.ResultData.payload.totalWin - socket.ResultData.payload.sideBetWin, socket.ResultData.payload.sideBetWin);
         SetPlayerTotalBGWin();
       }
-      else if (result.Contains("lose"))
+      else if (result.Contains("lose") || result.Contains("bust"))
       {
-        BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
         BJmanager.LostChipsAnimation();
       }
 
+      if (socket.ResultData.payload.dealerHand.isBlackjack)
+        SafeSetActive(DealerBlackjack_Object, true);
       if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
         InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
 
@@ -932,7 +983,7 @@ public class UIManager : MonoBehaviour
           FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
           SetFirstSplitBGWin();
         }
-        else if (FirstResult.Contains("lose"))
+        else if (FirstResult.Contains("lose") || FirstResult.Contains("bust"))
           BJmanager.LostFirstHandChips();
 
         if (FirstResult.Contains("push"))
@@ -950,7 +1001,7 @@ public class UIManager : MonoBehaviour
           SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
           SetSecondSplitBGWin();
         }
-        else if (SecondResult.Contains("lose"))
+        else if (SecondResult.Contains("lose") || SecondResult.Contains("bust"))
           BJmanager.LostSecondHandChips();
 
         if (SecondResult.Contains("push"))
@@ -1003,7 +1054,7 @@ public class UIManager : MonoBehaviour
         FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
         SetFirstSplitBGWin();
       }
-      else if (FirstResult.Contains("lose"))
+      else if (FirstResult.Contains("lose") || FirstResult.Contains("bust"))
         BJmanager.LostFirstHandChips();
 
       if (FirstResult.Contains("push"))
@@ -1021,7 +1072,7 @@ public class UIManager : MonoBehaviour
         SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
         SetSecondSplitBGWin();
       }
-      else if (SecondResult.Contains("lose"))
+      else if (SecondResult.Contains("lose") || FirstResult.Contains("bust"))
         BJmanager.LostSecondHandChips();
 
       if (SecondResult.Contains("push"))
@@ -1060,6 +1111,192 @@ public class UIManager : MonoBehaviour
       Insurance_Object.SetActive(true);
       BJmanager.UpdateBalance(socket.PlayerData.balance);
       BJmanager.TotalBet_Text.text = (BJmanager.mainBet + BJmanager.multiplierBet + socket.ResultData.payload.insuranceBet).ToString("N2");
+    }
+  }
+
+  IEnumerator OnDoubleCoroutine()
+  {
+    socket.RequestEvent("DOUBLE");
+    yield return new WaitUntil(() => socket.IsResultDone);
+
+    if (!socket.ResultData.success)
+    {
+      ShowPopup("Insufficient balance for double!");
+      yield break;
+    }
+
+    string resultId = socket.ResultData.id.ToLower();
+    if (resultId.Contains("gameresult"))
+    {
+      SafeSetActive(MiddleButtons_object, false);
+      if (!BJmanager.isSplit)
+      {
+        SafeSetActive(ArrPointer_Object, false);
+        double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.sideBet;
+        BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
+        BJmanager.UpdateBetText(socket.ResultData.payload.playerHands[0].bet, socket.ResultData.payload.sideBet);
+
+        BJmanager.isFlippin = true;
+        BJmanager.OnPlayerDealButton(!resultId.Contains("gameresult") ? socket.ResultData.payload.card : socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+        yield return new WaitForSecondsRealtime(0.5f);
+
+        BJmanager.isFlippin = true;
+        BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+        if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+        {
+          for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+          {
+            BJmanager.isFlippin = true;
+            BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+            yield return new WaitUntil(() => !BJmanager.isFlippin);
+          }
+        }
+
+        BJmanager.UpdateBalance(socket.ResultData.player.balance);
+        BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+        BJmanager.SetPlayerValue(socket.ResultData.payload.handResults[0].handValue);
+        BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+
+        if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+          InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
+        string gameResult = socket.ResultData.payload.handResults[0].result.ToLower();
+        if (gameResult.Contains("lose") || gameResult.Contains("bust"))
+        {
+          BJmanager.LostChipsAnimation();
+        }
+
+        if (gameResult.Contains("push"))
+        {
+          BJmanager.PlayerPush();          
+        }
+
+        if (gameResult.Contains("win"))
+        {
+          SetPlayerTotalBGWin();
+          BJmanager.UpdateBetText(socket.ResultData.payload.handResults[0].payout, socket.ResultData.payload.sideBetWin);
+        }
+
+        if (socket.ResultData.payload.dealerHand.isBlackjack)
+          SafeSetActive(DealerBlackjack_Object, true);
+
+        SafeSetActive(RebetButtons_object, true);
+      }
+      else
+      {
+        double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.playerHands[1].bet + socket.ResultData.payload.sideBet;
+        BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
+        SecondHandChipContainer.GetChild(1).GetChild(0).GetComponent<TMP_Text>().text = socket.ResultData.payload.playerHands[1].bet.ToString("N2");
+        SafeSetActive(FirstArrPointer_Object, false);
+        SafeSetActive(SecondArrPointer_Object, false);
+
+        if (!BJmanager.isFirstSplit && socket.ResultData.payload.playerHands[1].cards.Count > BJmanager.SecondSplitplayerCounter)
+        {
+          int count = socket.ResultData.payload.playerHands[1].cards.Count;
+          for (int i = BJmanager.SecondSplitplayerCounter; i <= count; i++)
+          {
+            Card PlayerCard = socket.ResultData.payload.playerHands[1].cards[i];
+            BJmanager.isFlippin = true;
+            BJmanager.OnSplitDealButton(PlayerCard);
+            yield return new WaitUntil(() => !BJmanager.isFlippin);
+            yield return new WaitForSecondsRealtime(0.5f);
+          }
+          BJmanager.isSplit = false;
+          BJmanager.isFirstSplit = false;
+        }
+
+        BJmanager.isFlippin = true;
+        BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+        if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+        {
+          for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+          {
+            BJmanager.isFlippin = true;
+            BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+            yield return new WaitUntil(() => !BJmanager.isFlippin);
+          }
+        }
+
+        BJmanager.UpdateBalance(socket.ResultData.player.balance);
+        BJmanager.UpdateWinnings(socket.ResultData.payload.totalWin);
+
+        // First hand result handling (kept exact)
+        HandResult FirstHandResult = socket.ResultData.payload.handResults[0];
+        string FirstResult = FirstHandResult.result.ToLower();
+        BJmanager.FirstSplitTotal_Text.text = FirstHandResult.handValue.ToString();
+        BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
+        if (FirstResult.Contains("win"))
+        {
+          YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+          SafeSetActive(YouWin_Object, true);
+          BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+          FirstHandBet_Text.text = FirstHandResult.payout.ToString("N2");
+          SetFirstSplitBGWin();
+        }
+        else if (FirstResult.Contains("lose") || FirstResult.Contains("bust"))
+          BJmanager.LostFirstHandChips();
+
+        if (FirstResult.Contains("push"))
+          BJmanager.FirstSplitTotal_Text.text = "PUSH " + BJmanager.FirstSplitTotal_Text.text;
+
+        // Second hand result handling
+        HandResult SecondHandResult = socket.ResultData.payload.handResults[1];
+        string SecondResult = SecondHandResult.result.ToLower();
+        BJmanager.SecondSplitTotal_Text.text = SecondHandResult.handValue.ToString();
+        if (SecondResult.Contains("win"))
+        {
+          YouWin_Text.text = socket.ResultData.payload.totalWin.ToString("N2");
+          SafeSetActive(YouWin_Object, true);
+          BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBetWin);
+          SecondHandBet_Text.text = SecondHandResult.payout.ToString("N2");
+          SetSecondSplitBGWin();
+        }
+        else if (SecondResult.Contains("lose") || SecondResult.Contains("bust"))
+          BJmanager.LostSecondHandChips();
+
+        if (SecondResult.Contains("push"))
+          BJmanager.SecondSplitTotal_Text.text = "PUSH " + BJmanager.SecondSplitTotal_Text.text;
+
+        if (FirstResult.Contains("bust"))
+          BJmanager.FirstSplitTotal_Text.text = "BUST " + FirstHandResult.handValue;
+
+        if (SecondResult.Contains("bust"))
+          BJmanager.SecondSplitTotal_Text.text = "BUST " + SecondHandResult.handValue;
+        if (socket.ResultData.payload.dealerHand.isBlackjack) SafeSetActive(DealerBlackjack_Object, true);
+
+        if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
+          InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
+
+        SafeSetActive(RebetButtons_object, true);
+      }
+    }
+    else
+    {
+      if (BJmanager.isSplit)
+      {
+        double totalBet = socket.ResultData.payload.playerHands[0].bet + BJmanager.mainBet + BJmanager.multiplierBet;
+        BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
+        FirstHandChipContainer.GetChild(1).GetChild(0).GetComponent<TMP_Text>().text = socket.ResultData.payload.playerHands[0].bet.ToString("N2");
+
+        Card PlayerCard = socket.ResultData.payload.card;
+        BJmanager.isFlippin = true;
+        BJmanager.OnSplitDealButton(PlayerCard);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
+
+        if (BJmanager.isFirstSplit)
+        {
+          BJmanager.isFirstSplit = false;
+        }
+        SafeSetActive(FirstArrPointer_Object, false);
+        SafeSetActive(SecondArrPointer_Object, true);
+        SafeSetActive(MiddleButtons_object, true);
+      }
     }
   }
 
@@ -1185,6 +1422,7 @@ public class UIManager : MonoBehaviour
 
   private void ResetUI()
   {
+    SafeSetActive(DealerCardTotal_Object, false);
     SafeSetActive(Insurance_Object, false);
     // Destroy chip containers and reset pointers & UI
     if (FirstHandChipContainer.childCount > 0)
@@ -1198,9 +1436,9 @@ public class UIManager : MonoBehaviour
     SafeSetActive(SecondArrPointer_Object, false);
     SafeSetActive(FirstSplitCardTotal_Object, false);
     SafeSetActive(SecondSplitCardTotal_Object, false);
+    SafeSetActive(PlayerCardTotal_Object, false);
     SafeSetActive(DealerBlackjack_Object, false);
-
-    if (PlayerBlackjack_Object != null && PlayerBlackjack_Object.activeInHierarchy) PlayerBlackjack_Object.SetActive(false);
+    SafeSetActive(PlayerBlackjack_Object, false);
     if (YouWin_Object != null && YouWin_Object.activeInHierarchy) YouWin_Object.SetActive(false);
 
     BJmanager.TotalBet_Text.text = (BJmanager.mainBet + BJmanager.multiplierBet).ToString("N2");

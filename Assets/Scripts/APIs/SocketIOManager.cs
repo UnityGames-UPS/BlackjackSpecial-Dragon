@@ -416,7 +416,8 @@ public class Payload
   public string gamePhase;
   public List<HandResult> handResults;
   public double totalWin;
-  public int sideBetWin;
+  public double sideBetWin;
+  public double sideBet;
   public double insuranceWin;
   public double insuranceBet;
 }
@@ -429,6 +430,7 @@ public class Hand
   public bool isSoft;
   public bool isBlackjack;
   public bool isBust;
+  public double bet;
 }
 
 [Serializable]

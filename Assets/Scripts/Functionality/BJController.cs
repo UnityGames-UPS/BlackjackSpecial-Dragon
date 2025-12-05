@@ -786,7 +786,7 @@ public class BJController : MonoBehaviour
         return $"{softValue} / {total}";
     }
 
-    if(total>21)
+    if (total > 21)
       return $"BUST {total}";
 
     return total.ToString();
@@ -897,23 +897,29 @@ public class BJController : MonoBehaviour
   internal void LostFirstHandChips()
   {
     firstHand_Coins.RemoveAll(c => c == null);
+    Transform Parent = null;
     foreach (GameObject coin in firstHand_Coins)
     {
       if (coin == null) continue;
+      if (Parent == null) Parent = coin.transform.parent;
       coin.transform.DOMove(ChipsLost_Transform.position, 0.3f)
           .OnComplete(() => coin.SetActive(false));
     }
+    if (Parent != null) Destroy(Parent.gameObject);
   }
 
   internal void LostSecondHandChips()
   {
     secondHand_Coins.RemoveAll(c => c == null);
+    Transform Parent = null;
     foreach (GameObject coin in secondHand_Coins)
     {
+      if (Parent == null) Parent = coin.transform.parent;
       if (coin == null) continue;
       coin.transform.DOMove(ChipsLost_Transform.position, 0.3f)
           .OnComplete(() => coin.SetActive(false));
     }
+    if (Parent != null) Destroy(Parent.gameObject);
   }
 
   internal void UpdateBetText(double mainBet, double sideBet)
@@ -926,6 +932,18 @@ public class BJController : MonoBehaviour
   {
     string total = PlayerTotal_Text.text;
     PlayerTotal_Text.text = "PUSH " + total;
+  }
+
+  internal void SetPlayerValue(int value)
+  {
+    if (value > 21)
+    {
+      PlayerTotal_Text.text = "BUST " + value.ToString();
+    }
+    else
+    {
+      PlayerTotal_Text.text = value.ToString();
+    }
   }
 
   internal void SetDealerValue(int value)
