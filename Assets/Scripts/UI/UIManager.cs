@@ -433,6 +433,15 @@ public class UIManager : MonoBehaviour
   {
     ResetUI();
     SafeSetActive(RebetButtons_object, false);
+    if (!BJmanager.TryDoubleBet() && !BJmanager.LowBalCheck())
+    {
+      yield return BJmanager.ClearCards();
+      SafeSetActive(MainBetButton_Object, true);
+      SafeSetActive(MultBetBttn_Object, true);
+      SafeSetActive(ChipSelectParent_Object, true);
+      SafeSetActive(InitialButtons_object, true);
+      yield break;
+    }
     SafeSetActive(MainBetButton_Object, false);
     yield return BJmanager.ClearCards();
     OnDeal();
@@ -470,9 +479,10 @@ public class UIManager : MonoBehaviour
       yield break;
     }
 
-    double totalBet = BJmanager.mainBet + BJmanager.multiplierBet;
-    BJmanager.TotalBet_Text.text = (totalBet * 2).ToString("N2");
-    BJmanager.UpdateBetText(BJmanager.mainBet, BJmanager.multiplierBet * 2);
+    double totalBet = socket.ResultData.payload.sideBet + socket.ResultData.payload.hands[0].bet + socket.ResultData.payload.hands[1].bet + socket.ResultData.payload.insuranceBet;
+    BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
+
+    BJmanager.UpdateBetText(BJmanager.mainBet, socket.ResultData.payload.sideBet);
     BJmanager.UpdateBalance(socket.ResultData.player.balance);
 
     ChipParent_Transform.gameObject.SetActive(false);
@@ -601,6 +611,10 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnDealCoroutine()
   {
+    if (!BJmanager.LowBalCheck())
+    {
+      yield break;
+    }
     SafeSetActive(InitialButtons_object, false);
     if (MainBet_Button) MainBet_Button.gameObject.SetActive(false);
     if (MultiplierBet_Button) MultiplierBet_Button.gameObject.SetActive(false);
@@ -611,6 +625,7 @@ public class UIManager : MonoBehaviour
 
     socket.RequestEvent("DEAL");
     yield return new WaitUntil(() => socket.IsResultDone);
+    
 
     BJmanager.isFlippin = true;
     BJmanager.OnPlayerDealButton(socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
@@ -1132,7 +1147,7 @@ public class UIManager : MonoBehaviour
       if (!BJmanager.isSplit)
       {
         SafeSetActive(ArrPointer_Object, false);
-        double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.sideBet;
+        double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.sideBet + socket.ResultData.payload.insuranceBet;
         BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
         BJmanager.UpdateBetText(socket.ResultData.payload.playerHands[0].bet, socket.ResultData.payload.sideBet);
 

@@ -336,9 +336,6 @@ public class SocketIOManager : MonoBehaviour
 
   internal void RequestEvent(string eventName)
   {
-    if (eventName.Contains("DEAL") && bJController.LowBalCheck())
-      return;
-
     IsResultDone = false;
     RequestClass message = new RequestClass
     {
