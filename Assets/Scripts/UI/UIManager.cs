@@ -756,7 +756,7 @@ public class UIManager : MonoBehaviour
       if (socket.ResultData.payload.gamePhase.ToLower().Contains("completed"))
       {
         isGameCompleted = true;
-        PlayerCard = socket.ResultData.payload.playerHands[1].cards[BJmanager.SecondSplitplayerCounter + 1];
+        PlayerCard = socket.ResultData.payload.playerHands[1].cards[BJmanager.SecondSplitplayerCounter];
       }
       else
       {
@@ -1172,7 +1172,7 @@ public class UIManager : MonoBehaviour
 
         if (gameResult.Contains("push"))
         {
-          BJmanager.PlayerPush();          
+          BJmanager.PlayerPush();
         }
 
         if (gameResult.Contains("win"))
@@ -1190,24 +1190,18 @@ public class UIManager : MonoBehaviour
       {
         double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.playerHands[1].bet + socket.ResultData.payload.sideBet;
         BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
-        SecondHandChipContainer.GetChild(1).GetChild(0).GetComponent<TMP_Text>().text = socket.ResultData.payload.playerHands[1].bet.ToString("N2");
+        SecondHandBet_Text.text = socket.ResultData.payload.playerHands[1].bet.ToString("N2");
         SafeSetActive(FirstArrPointer_Object, false);
         SafeSetActive(SecondArrPointer_Object, false);
 
-        if (!BJmanager.isFirstSplit && socket.ResultData.payload.playerHands[1].cards.Count > BJmanager.SecondSplitplayerCounter)
-        {
-          int count = socket.ResultData.payload.playerHands[1].cards.Count;
-          for (int i = BJmanager.SecondSplitplayerCounter; i <= count; i++)
-          {
-            Card PlayerCard = socket.ResultData.payload.playerHands[1].cards[i];
-            BJmanager.isFlippin = true;
-            BJmanager.OnSplitDealButton(PlayerCard);
-            yield return new WaitUntil(() => !BJmanager.isFlippin);
-            yield return new WaitForSecondsRealtime(0.5f);
-          }
-          BJmanager.isSplit = false;
-          BJmanager.isFirstSplit = false;
-        }
+        Card PlayerCard = socket.ResultData.payload.playerHands[1].cards[^1];
+        BJmanager.isFlippin = true;
+        BJmanager.OnSplitDealButton(PlayerCard);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
+        yield return new WaitForSecondsRealtime(0.5f);
+
+        BJmanager.isSplit = false;
+        BJmanager.isFirstSplit = false;
 
         BJmanager.isFlippin = true;
         BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
@@ -1280,9 +1274,9 @@ public class UIManager : MonoBehaviour
     {
       if (BJmanager.isSplit)
       {
-        double totalBet = socket.ResultData.payload.playerHands[0].bet + BJmanager.mainBet + BJmanager.multiplierBet;
+        double totalBet = socket.ResultData.payload.handBet + BJmanager.mainBet + BJmanager.multiplierBet;
         BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
-        FirstHandChipContainer.GetChild(1).GetChild(0).GetComponent<TMP_Text>().text = socket.ResultData.payload.playerHands[0].bet.ToString("N2");
+        FirstHandBet_Text.text = socket.ResultData.payload.handBet.ToString("N2");
 
         Card PlayerCard = socket.ResultData.payload.card;
         BJmanager.isFlippin = true;

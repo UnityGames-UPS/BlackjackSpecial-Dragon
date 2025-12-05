@@ -83,9 +83,9 @@ public class BJController : MonoBehaviour
   private int totaldealerValue = 0;
 
   internal int playerCounter = 0;
-  internal int FirstSplitplayerCounter = 0;
-  internal int SecondSplitplayerCounter = 0;
   internal int dealerCounter = 0;
+  internal int FirstSplitplayerCounter = 1;
+  internal int SecondSplitplayerCounter = 1;
 
   internal bool isFlippin = false;
   internal bool isSplit = false;
@@ -480,8 +480,8 @@ public class BJController : MonoBehaviour
 
     playerCounter = 0;
     dealerCounter = 0;
-    FirstSplitplayerCounter = 0;
-    SecondSplitplayerCounter = 0;
+    FirstSplitplayerCounter = 1;
+    SecondSplitplayerCounter = 1;
 
     totalValue = 0;
     totaldealerValue = 0;
@@ -897,29 +897,23 @@ public class BJController : MonoBehaviour
   internal void LostFirstHandChips()
   {
     firstHand_Coins.RemoveAll(c => c == null);
-    Transform Parent = null;
     foreach (GameObject coin in firstHand_Coins)
     {
       if (coin == null) continue;
-      if (Parent == null) Parent = coin.transform.parent;
       coin.transform.DOMove(ChipsLost_Transform.position, 0.3f)
           .OnComplete(() => coin.SetActive(false));
     }
-    if (Parent != null) Destroy(Parent.gameObject);
   }
 
   internal void LostSecondHandChips()
   {
     secondHand_Coins.RemoveAll(c => c == null);
-    Transform Parent = null;
     foreach (GameObject coin in secondHand_Coins)
     {
-      if (Parent == null) Parent = coin.transform.parent;
       if (coin == null) continue;
       coin.transform.DOMove(ChipsLost_Transform.position, 0.3f)
           .OnComplete(() => coin.SetActive(false));
     }
-    if (Parent != null) Destroy(Parent.gameObject);
   }
 
   internal void UpdateBetText(double mainBet, double sideBet)

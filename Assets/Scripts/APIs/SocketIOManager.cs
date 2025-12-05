@@ -415,6 +415,7 @@ public class Payload
   public int sideBetMultiplier;
   public string gamePhase;
   public List<HandResult> handResults;
+  public double handBet;
   public double totalWin;
   public double sideBetWin;
   public double sideBet;
