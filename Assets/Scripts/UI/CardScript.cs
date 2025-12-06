@@ -32,6 +32,7 @@ public class CardScript : MonoBehaviour
 
   private void ChangeSprite()
   {
+    bjManager.audioManager.PlayCardFlipAudio();
     Card_Image.sprite = csprite;
   }
 }

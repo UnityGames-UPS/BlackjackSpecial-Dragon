@@ -51,6 +51,7 @@ public class SocketIOManager : MonoBehaviour
     OpenSocket();
   }
 
+
   private IEnumerator WaitForAuthToken(SocketOptions options)
   {
     // Wait until myAuth is not null
@@ -152,7 +153,7 @@ public class SocketIOManager : MonoBehaviour
 
     if (hasEverConnected)
     {
-      // UiManager.CheckAndClosePopups();
+      UiManager.CheckAndClosePopup();
     }
 
     hasEverConnected = true;
@@ -166,8 +167,8 @@ public class SocketIOManager : MonoBehaviour
   {
     Debug.LogWarning("⚠️ Disconnected from server.");
     ResetPingRoutine();
-    // UiManager.DisconnectionPopup();
-  } //Back2 end
+    UiManager.DisconnectionPopup();
+  } 
 
   private void OnPongReceived(string data) //Back2 Start
   {
@@ -192,7 +193,7 @@ public class SocketIOManager : MonoBehaviour
     ParseResponse(data);
   }
 
-  private void SendPing() //Back2 Start
+  private void SendPing()
   {
     ResetPingRoutine();
     PingRoutine = StartCoroutine(PingCheck());

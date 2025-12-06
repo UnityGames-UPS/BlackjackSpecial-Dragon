@@ -13,6 +13,7 @@ public class UIManager : MonoBehaviour
   [SerializeField] private BJController BJmanager;
   [SerializeField] private SocketIOManager socket;
   [SerializeField] private ActionPopup actionPopup;
+  [SerializeField] private AudioManager audioManager;
 
   [SerializeField] private Transform ChipParent_Transform;
 
@@ -31,6 +32,9 @@ public class UIManager : MonoBehaviour
   [SerializeField] private Button Settings_Button;
   [SerializeField] private Button SettingsClose_Button;
   [SerializeField] private Button BlackBackground_Button;
+  [SerializeField] private Button MusicToggle_Button;
+  [SerializeField] private Button SoundToggle_Button; 
+  [SerializeField] private Button GoHome_Button;
 
   [Header("Middle Buttons")]
   [SerializeField] private Button Hit_Button;
@@ -186,6 +190,9 @@ public class UIManager : MonoBehaviour
     AddListenerSafe(QuitNo_Button, () => ClosePopup(QuitPopup_Object));
     AddListenerSafe(InfoClose_Button, () => ClosePopup(InfoPopup_Object));
     AddListenerSafe(SettingsClose_Button, () => ClosePopup(SettingsPopup_Object));
+    AddListenerSafe(MusicToggle_Button, ()=> audioManager.ToggleBGAudio());
+    AddListenerSafe(SoundToggle_Button, ()=> audioManager.ToggleSoundsAudio());
+    AddListenerSafe(GoHome_Button, CallOnGameQuit);
 
     AddListenerSafe(LeftArr_Button, () => OnChipScroll(false));
     AddListenerSafe(RightArr_Button, () => OnChipScroll(true));
@@ -226,6 +233,7 @@ public class UIManager : MonoBehaviour
 
   void OnChipButtonClick(int index)
   {
+    audioManager.PlayChipSelectAudio();
     // Return previously selected chip to scroll parent and reset its scale
     if (Chips_Object.Length > chipCounter && Chips_Object[chipCounter] != null)
     {
@@ -260,6 +268,7 @@ public class UIManager : MonoBehaviour
 
   private void OnChipScroll(bool direction)
   {
+    audioManager.PlayButtonAudio();
     // direction == true means scroll right (increment)
     if (Chips_Object == null || Chips_Object.Length == 0) return;
 
@@ -308,6 +317,7 @@ public class UIManager : MonoBehaviour
 
   void ConfirmSplit()
   {
+    audioManager.PlayButtonAudio();
     if (ActionPopup.ShouldSkip(PopupType.Split))
     {
       StartCoroutine(OnSplitDealCoroutine());
@@ -319,13 +329,22 @@ public class UIManager : MonoBehaviour
     actionPopup.Show(
         msg,
         PopupType.Split,
-        yesAction: () => StartCoroutine(OnSplitDealCoroutine()),
-        noAction: () => Debug.Log("Split cancelled")
+        yesAction: () =>
+        {
+          StartCoroutine(OnSplitDealCoroutine());
+          audioManager.PlayButtonAudio();
+        },
+        noAction: () =>
+        {
+          Debug.Log("Split cancelled");
+          audioManager.PlayButtonAudio();
+        }
     );
   }
 
   private void OnBet(bool isMultiplier)
   {
+    audioManager.PlayButtonAudio();
     if (isMultiplier)
       BJmanager.BetOnButton();
     else
@@ -334,17 +353,20 @@ public class UIManager : MonoBehaviour
 
   private void OnDeal()
   {
+    audioManager.PlayButtonAudio();
     StartCoroutine(OnDealCoroutine());
   }
 
   private void OnClear()
   {
+    audioManager.PlayButtonAudio();
     SafeSetActive(InitialButtons_object, false);
     BJmanager.ClearBet();
   }
 
   private void OnUndo()
   {
+    audioManager.PlayButtonAudio();
     BJmanager.UndoBetButton();
     if (BJmanager.betHistory.Count == 0 && InitialButtons_object != null)
     {
@@ -354,21 +376,25 @@ public class UIManager : MonoBehaviour
 
   private void OnStartDouble()
   {
+    audioManager.PlayButtonAudio();
     BJmanager.TryDoubleBet();
   }
 
   private void OnHit()
   {
+    audioManager.PlayButtonAudio();
     StartCoroutine(OnHitCoroutine());
   }
 
   private void OnStand()
   {
+    audioManager.PlayButtonAudio();
     StartCoroutine(OnStandCoroutine());
   }
 
   void CheckDoublePopup()
   {
+    audioManager.PlayButtonAudio();
     if (BJmanager.isSplit)
     {
       StartCoroutine(OnDoubleCoroutine());
@@ -392,16 +418,19 @@ public class UIManager : MonoBehaviour
 
   private void OnRebet()
   {
+    audioManager.PlayButtonAudio();
     StartCoroutine(OnRebetCoroutine());
   }
 
   private void OnRebetDeal()
   {
+    audioManager.PlayButtonAudio();
     StartCoroutine(OnRebetDealCoroutine());
   }
 
   private void OnRebetDouble()
   {
+    audioManager.PlayButtonAudio();
     StartCoroutine(OnRebetDoubleCoroutine());
   }
 
@@ -611,7 +640,7 @@ public class UIManager : MonoBehaviour
 
   private IEnumerator OnDealCoroutine()
   {
-    if (!BJmanager.LowBalCheck())
+    if (BJmanager.LowBalCheck())
     {
       yield break;
     }
@@ -625,7 +654,7 @@ public class UIManager : MonoBehaviour
 
     socket.RequestEvent("DEAL");
     yield return new WaitUntil(() => socket.IsResultDone);
-    
+
 
     BJmanager.isFlippin = true;
     BJmanager.OnPlayerDealButton(socket.ResultData.payload.playerHands[0].cards[BJmanager.playerCounter]);
@@ -1137,6 +1166,7 @@ public class UIManager : MonoBehaviour
     if (!socket.ResultData.success)
     {
       ShowPopup("Insufficient balance for double!");
+      SafeSetActive(MiddleButtons_object, false);
       yield break;
     }
 
@@ -1203,7 +1233,7 @@ public class UIManager : MonoBehaviour
       }
       else
       {
-        double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.playerHands[1].bet + socket.ResultData.payload.sideBet;
+        double totalBet = socket.ResultData.payload.playerHands[0].bet + socket.ResultData.payload.playerHands[1].bet + socket.ResultData.payload.sideBet + socket.ResultData.payload.insuranceBet;
         BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
         SecondHandBet_Text.text = socket.ResultData.payload.playerHands[1].bet.ToString("N2");
         SafeSetActive(FirstArrPointer_Object, false);
@@ -1289,7 +1319,7 @@ public class UIManager : MonoBehaviour
     {
       if (BJmanager.isSplit)
       {
-        double totalBet = socket.ResultData.payload.handBet + BJmanager.mainBet + BJmanager.multiplierBet;
+        double totalBet = socket.ResultData.payload.handBet + BJmanager.mainBet + socket.ResultData.payload.sideBet + socket.ResultData.payload.insuranceBet;
         BJmanager.TotalBet_Text.text = totalBet.ToString("N2");
         FirstHandBet_Text.text = socket.ResultData.payload.handBet.ToString("N2");
 
@@ -1300,10 +1330,10 @@ public class UIManager : MonoBehaviour
 
         if (BJmanager.isFirstSplit)
         {
+          SafeSetActive(SecondArrPointer_Object, true);
           BJmanager.isFirstSplit = false;
         }
         SafeSetActive(FirstArrPointer_Object, false);
-        SafeSetActive(SecondArrPointer_Object, true);
         SafeSetActive(MiddleButtons_object, true);
       }
     }
@@ -1482,8 +1512,10 @@ public class UIManager : MonoBehaviour
 
   private void OpenPopup(GameObject popup)
   {
-    if (DisconnectPopup_Object != null && DisconnectPopup_Object.activeInHierarchy) return;
+    if (DisconnectPopup_Object.activeInHierarchy) return;
     if (popup == DisconnectPopup_Object && isExit) return;
+
+    audioManager.PlayButtonAudio();
 
     if (BlackBackground_Button) BlackBackground_Button.gameObject.SetActive(true);
 
@@ -1501,17 +1533,16 @@ public class UIManager : MonoBehaviour
 
   private void ClosePopup(GameObject popup)
   {
-    if (DisconnectPopup_Object != null && DisconnectPopup_Object.activeInHierarchy) return;
+    if (DisconnectPopup_Object.activeInHierarchy) return;
+
+    audioManager.PlayButtonAudio();
 
     if (BlackBackground_Button) BlackBackground_Button.gameObject.SetActive(false);
 
     List<GameObject> popups = new() { QuitPopup_Object, InfoPopup_Object, SettingsPopup_Object, ReconnectPopup_Object, DisconnectPopup_Object };
     foreach (GameObject obj in popups)
     {
-      if (obj != popup)
-      {
-        if (obj) obj.SetActive(false);
-      }
+      if (obj) obj.SetActive(false);
     }
   }
   internal void SetPlayerTotalBGWin()

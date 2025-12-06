@@ -9,6 +9,7 @@ public class BJController : MonoBehaviour
 {
   [SerializeField] private SocketIOManager socket;
   [SerializeField] private UIManager uiManager;
+  [SerializeField] internal AudioManager audioManager;
 
   [SerializeField] internal GameObject MainBetText_Object;
   [SerializeField] private TMP_Text MainBetText_Text;
@@ -42,8 +43,6 @@ public class BJController : MonoBehaviour
   [SerializeField] private int[] amount_array;
   [SerializeField] internal int mainBet = 0;
   [SerializeField] internal int multiplierBet = 0;
-  [SerializeField] private int dealerTotal = 0;
-  [SerializeField] private int playerTotal = 0;
   private int maxBetAmount = 500;
 
   [Header("Prefabs")]
