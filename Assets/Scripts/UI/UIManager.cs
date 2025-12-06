@@ -33,7 +33,7 @@ public class UIManager : MonoBehaviour
   [SerializeField] private Button SettingsClose_Button;
   [SerializeField] private Button BlackBackground_Button;
   [SerializeField] private Button MusicToggle_Button;
-  [SerializeField] private Button SoundToggle_Button; 
+  [SerializeField] private Button SoundToggle_Button;
   [SerializeField] private Button GoHome_Button;
 
   [Header("Middle Buttons")]
@@ -190,8 +190,8 @@ public class UIManager : MonoBehaviour
     AddListenerSafe(QuitNo_Button, () => ClosePopup(QuitPopup_Object));
     AddListenerSafe(InfoClose_Button, () => ClosePopup(InfoPopup_Object));
     AddListenerSafe(SettingsClose_Button, () => ClosePopup(SettingsPopup_Object));
-    AddListenerSafe(MusicToggle_Button, ()=> audioManager.ToggleBGAudio());
-    AddListenerSafe(SoundToggle_Button, ()=> audioManager.ToggleSoundsAudio());
+    AddListenerSafe(MusicToggle_Button, () => audioManager.ToggleBGAudio());
+    AddListenerSafe(SoundToggle_Button, () => audioManager.ToggleSoundsAudio());
     AddListenerSafe(GoHome_Button, CallOnGameQuit);
 
     AddListenerSafe(LeftArr_Button, () => OnChipScroll(false));
@@ -642,6 +642,11 @@ public class UIManager : MonoBehaviour
   {
     if (BJmanager.LowBalCheck())
     {
+      yield return BJmanager.ClearCards();
+      SafeSetActive(MainBetButton_Object, true);
+      SafeSetActive(MultBetBttn_Object, true);
+      SafeSetActive(ChipSelectParent_Object, true);
+      SafeSetActive(InitialButtons_object, true);
       yield break;
     }
     SafeSetActive(InitialButtons_object, false);

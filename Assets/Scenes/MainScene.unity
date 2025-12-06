@@ -430,7 +430,7 @@ MonoBehaviour:
   UiManager: {fileID: 1141078115}
   JSManager: {fileID: 1381509618}
   TestSocketURI: http://localhost:5000/
-  TestToken: 545233744415428db95db0c53ecc19f5
+  TestToken: 3093894c25374551aa93ddf419e5a913
   RaycastBlocker: {fileID: 1623683830}
 --- !u!4 &43691434
 Transform:
@@ -11717,7 +11717,6 @@ MonoBehaviour:
   PortraitMatchHeight: 1
   transitionDuration: 0.2
   waitForRotation: 0.2
-  inputField: {fileID: 0}
 --- !u!1 &1129019663
 GameObject:
   m_ObjectHideFlags: 0
@@ -17812,7 +17811,7 @@ MonoBehaviour:
   useSharedMaterial: 1
   doLoopAnimation: 0
   currentAnimationState: 0
-  AnimationSpeed: 30
+  AnimationSpeed: 45
   delayBetweenLoop: 0
   StartOnAwake: 1
   DestroyOnCompletion: 0
