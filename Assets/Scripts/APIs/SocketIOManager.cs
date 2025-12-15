@@ -456,6 +456,7 @@ public class HandResult
   public string result;
   public double payout;
   public int handValue;
+  public bool isPlayerBlackjack;
 }
 
 [Serializable]

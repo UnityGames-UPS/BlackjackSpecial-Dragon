@@ -708,14 +708,25 @@ public class UIManager : MonoBehaviour
     }
     else if (gameState.Contains("completed"))
     {
-      BJmanager.SetPlayerValue(socket.ResultData.payload.handResults[0].handValue);
-      BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
       double win = socket.ResultData.payload.totalWin;
       if (win > 0)
       {
-        if (socket.ResultData.payload.handResults[0].result.ToLower().Contains("blackjack"))
+        if (socket.ResultData.payload.handResults[0].isPlayerBlackjack)
           SafeSetActive(PlayerBlackjack_Object, true);
+        
+        BJmanager.isFlippin = true;
+        BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
+        yield return new WaitUntil(() => !BJmanager.isFlippin);
 
+        if (socket.ResultData.payload.dealerHand.cards.Count > 2)
+        {
+          for (int i = 0; i < socket.ResultData.payload.dealerHand.cards.Count - 2; i++)
+          {
+            BJmanager.isFlippin = true;
+            BJmanager.OnDealerButton(socket.ResultData.payload.dealerHand.cards[i + 2]);
+            yield return new WaitUntil(() => !BJmanager.isFlippin);
+          }
+        }
         YouWin_Text.text = win.ToString("N2");
         SafeSetActive(YouWin_Object, true);
         BJmanager.UpdateWinnings(win);
@@ -726,6 +737,8 @@ public class UIManager : MonoBehaviour
       {
         BJmanager.LostChipsAnimation();
       }
+      BJmanager.SetPlayerValue(socket.ResultData.payload.handResults[0].handValue);
+      BJmanager.SetDealerValue(socket.ResultData.payload.dealerHand.value);
       if (Insurance_Object.activeSelf && socket.ResultData.payload.insuranceWin > 0)
         InsuranceTotal_Text.text = socket.ResultData.payload.insuranceWin.ToString("N2");
 

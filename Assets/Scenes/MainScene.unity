@@ -430,7 +430,7 @@ MonoBehaviour:
   UiManager: {fileID: 1141078115}
   JSManager: {fileID: 1381509618}
   TestSocketURI: http://localhost:5000/
-  TestToken: 3093894c25374551aa93ddf419e5a913
+  TestToken: e7f4006a76554522b8e879c7ad680513
   RaycastBlocker: {fileID: 1623683830}
 --- !u!4 &43691434
 Transform:
