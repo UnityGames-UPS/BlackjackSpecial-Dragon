@@ -1184,7 +1184,8 @@ public class UIManager : MonoBehaviour
     if (!socket.ResultData.success)
     {
       ShowPopup("Insufficient balance for double!");
-      SafeSetActive(MiddleButtons_object, false);
+      SafeSetActive(MidDouble_Button.gameObject, false);
+      SafeSetActive(MiddleButtons_object, true);
       yield break;
     }
 
