@@ -682,8 +682,11 @@ public class UIManager : MonoBehaviour
     SafeSetActive(DealerCardTotal_Object, true);
     BJmanager.UpdateBalance(socket.ResultData.player.balance);
 
+    Debug.Log("Before coroutine");
     if (BJmanager.CheckMultiplier())
       yield return DragonRoutine();
+    Debug.Log("After Coroutine");
+
 
     string gameState = socket.ResultData.payload.gamePhase.ToLower();
 
@@ -713,7 +716,7 @@ public class UIManager : MonoBehaviour
       {
         if (socket.ResultData.payload.handResults[0].isPlayerBlackjack)
           SafeSetActive(PlayerBlackjack_Object, true);
-        
+
         BJmanager.isFlippin = true;
         BJmanager.OnDealerOpenFlipped(socket.ResultData.payload.dealerHand.cards[1]);
         yield return new WaitUntil(() => !BJmanager.isFlippin);
@@ -1385,11 +1388,12 @@ public class UIManager : MonoBehaviour
 
     if (Box_Animation) Box_Animation.StartAnimation();
 
-    yield return new WaitUntil(() => dragonAnimation.rendererDelegate.sprite == dragonAnimation.textureArray[^1]);
-
-    SafeSetActive(DragonFire_Object, false);
-    SafeSetActive(DragonNormal_Object, true);
     yield return new WaitForSeconds(1f);
+    dragonAnimation.OnAnimationComplete = () =>
+    {
+      DragonFire_Object.SetActive(false);
+      SafeSetActive(DragonNormal_Object, true);
+    };
   }
 
   internal void AddMultiplierHistory(int multiplier)
@@ -1408,11 +1412,13 @@ public class UIManager : MonoBehaviour
 
   IEnumerator FireAnimationRoutine(ImageAnimation DragonAnimation)
   {
-    yield return new WaitUntil(() => DragonAnimation.rendererDelegate.sprite == DragonAnimation.textureArray[17]);
+    yield return new WaitForSeconds(0.35f);
     ImageAnimation fireAnimation = Fire_Object.GetComponent<ImageAnimation>();
     Fire_Object.SetActive(true);
-    yield return new WaitUntil(() => fireAnimation.rendererDelegate.sprite == fireAnimation.textureArray[^1]);
-    Fire_Object.SetActive(false);
+    fireAnimation.OnAnimationComplete = () =>
+    {
+      Fire_Object.SetActive(false);
+    };
   }
 
   #endregion

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -38,7 +39,7 @@ public class ImageAnimation : MonoBehaviour
 
   public bool DestroyOnCompletion = false;
 
-  [SerializeField] internal bool isplaying;
+  internal Action OnAnimationComplete;
 
   [SerializeField]
   private Sprite OriginalSprite;
@@ -72,7 +73,6 @@ public class ImageAnimation : MonoBehaviour
 
   private void AnimationProcess()
   {
-    isplaying = true;
     SetTextureOfIndex();
     indexOfTexture++;
     if (indexOfTexture == textureArray.Count)
@@ -81,21 +81,16 @@ public class ImageAnimation : MonoBehaviour
       if (doLoopAnimation)
       {
         Invoke("AnimationProcess", delayBetweenAnimation + delayBetweenLoop);
-        isplaying = true;
       }
       else
       {
-        if (DestroyOnCompletion)
-        {
-          this.gameObject.SetActive(false);
-        }
-        isplaying = false;
+        currentAnimationState = ImageState.NONE;
+        OnAnimationComplete?.Invoke();
       }
     }
     else
     {
       Invoke("AnimationProcess", delayBetweenAnimation);
-      isplaying = true;
 
     }
   }
@@ -140,7 +135,6 @@ public class ImageAnimation : MonoBehaviour
         rendererDelegate.sprite = textureArray[0];
       CancelInvoke("AnimationProcess");
       currentAnimationState = ImageState.NONE;
-      isplaying = false;
     }
   }
 

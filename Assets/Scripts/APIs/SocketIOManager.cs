@@ -43,6 +43,7 @@ public class SocketIOManager : MonoBehaviour
 
   void Awake()
   {
+    Debug.Log("Dev Build");
     Application.runInBackground = true;
   }
 
@@ -50,7 +51,6 @@ public class SocketIOManager : MonoBehaviour
   {
     OpenSocket();
   }
-
 
   private IEnumerator WaitForAuthToken(SocketOptions options)
   {
@@ -168,7 +168,7 @@ public class SocketIOManager : MonoBehaviour
     Debug.LogWarning("⚠️ Disconnected from server.");
     ResetPingRoutine();
     UiManager.DisconnectionPopup();
-  } 
+  }
 
   private void OnPongReceived(string data) //Back2 Start
   {
