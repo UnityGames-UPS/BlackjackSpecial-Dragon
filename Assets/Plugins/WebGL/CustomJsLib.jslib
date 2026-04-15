@@ -1,50 +1,67 @@
 mergeInto(LibraryManager.library, {
-  SendLogToReactNative: function (messagePtr) {
-    try {
-      var message = UTF8ToString(messagePtr);
-      if (typeof window !== "undefined" && window.ReactNativeWebView) {
-        if (typeof window.ReactNativeWebView.postMessage !== "undefined" && window.ReactNativeWebView.postMessage) {
+    SendLogToReactNative: function (messagePtr) {
+        var message = UTF8ToString(messagePtr);
+        // console.log('jslib fun : ' + message);
+        if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(message);
-        }
-      }
-    } catch (e) {
-      console.error("[CustomJsLib] SendLogToReactNative Error:", e);
-    }
-  },
+        } 
+    },
 
-  SendPostMessage: function (messagePtr) {
-    try {
+    SendPostMessage: function(messagePtr) 
+    {
       var message = UTF8ToString(messagePtr);
-      console.log('sending msg: ', message);
-      if (typeof window !== "undefined" && window.ReactNativeWebView) {
-        if (typeof window.ReactNativeWebView.postMessage !== "undefined" && window.ReactNativeWebView.postMessage) {
-          if(message == "authToken"){
-            window.ReactNativeWebView.postMessage("if message is authtoken");
-            var injectedObjectJson = window.ReactNativeWebView.injectedObjectJson();
-            var injectedObj = JSON.parse(injectedObjectJson);
+      console.log('SendReactPostMessage, message sent: ' + message);
+      if(window.ReactNativeWebView)
+      {
+        if(message == "authToken"){
+          var injectedObjectJson = window.ReactNativeWebView.injectedObjectJson();
+          var injectedObj = JSON.parse(injectedObjectJson);
 
-            window.ReactNativeWebView.postMessage('Injected obj : ' + injectedObjectJson);
-            
-            var combinedData = JSON.stringify({
-                socketURL: injectedObj.socketURL.trim(),
-                cookie: injectedObj.token.trim(),
-                nameSpace: injectedObj.nameSpace ? injectedObj.nameSpace.trim() : ""
-            });
+          window.ReactNativeWebView.postMessage('Injected obj : ' + injectedObjectJson);
+          
+          var combinedData = JSON.stringify({
+              socketURL: injectedObj.socketURL.trim(),
+              cookie: injectedObj.token.trim(),
+              nameSpace: injectedObj.nameSpace ? injectedObj.nameSpace.trim() : ""
+          });
 
-            if (typeof SendMessage === 'function') {
-              SendMessage('SocketManager', 'ReceiveAuthToken', combinedData);
-            }
+          if (typeof SendMessage === 'function') {
+            SendMessage('SocketManager', 'ReceiveAuthToken', combinedData);
           }
-          window.ReactNativeWebView.postMessage(message);
         }
-      } 
+        window.ReactNativeWebView.postMessage(message);
+      }
       else if (typeof window !== "undefined" && window.parent) {
-        if (typeof window.parent.dispatchReactUnityEvent !== "undefined" && window.parent.dispatchReactUnityEvent) {
-          window.parent.dispatchReactUnityEvent(message);
+        if (typeof window.parent.postMessage === "function"){
+          console.log("Calling window.parent.postMessage");
+          window.parent.postMessage({ 
+            type: message,
+            data: { }
+          }, "*");
         }
       }
-    } catch (e) {
-      console.error("[CustomJsLib] SendPostMessage Error:", e);
+      else if(window.parent)
+      {
+        if(message == "authToken")
+        {
+          window.addEventListener('message', function(event){
+            if(event.data.type === 'authToken'){
+              var combinedData = JSON.stringify({
+                  cookie: event.data.cookie,
+                  socketURL: event.data.socketURL,
+                  nameSpace: event.data && event.data.nameSpace ? event.data.nameSpace : ''
+              }); 
+
+              if (typeof SendMessage === 'function') {
+                SendMessage('SocketManager', 'ReceiveAuthToken', combinedData);
+              }
+              else{
+                console.log('SendMessage is not a func');
+              }
+            }
+          });
+        }
+      }
     }
   },
 
