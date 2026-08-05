@@ -131,6 +131,14 @@ public class BJController : MonoBehaviour
     });
   }
 
+  // External balance push (balance:sync) — snap the display, don't tween it like a spin result.
+  internal void UpdateBalanceDisplay(double newBalance)
+  {
+    balTween?.Kill();
+    if (Balance_Text) Balance_Text.text = newBalance.ToString("N2");
+    LowBalCheck();
+  }
+
   internal void UpdateWinnings(double amount)
   {
     double startWin = 0;

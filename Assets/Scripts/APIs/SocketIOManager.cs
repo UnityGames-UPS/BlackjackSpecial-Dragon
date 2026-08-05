@@ -41,6 +41,13 @@ public class SocketIOManager : MonoBehaviour
   private const int MaxMissedPongs = 5;
   private Coroutine PingRoutine; //Back2 end
 
+  private bool hasFocus = true;
+  private float focusLostTime = 0f;
+  private Coroutine focusCheckRoutine;
+  private float maxBackgroundTime = 60f;
+  private bool isExiting = false;
+  private bool isBeingDestroyed = false;
+
   void Awake()
   {
     Debug.Log("Dev Build");
@@ -142,6 +149,7 @@ public class SocketIOManager : MonoBehaviour
     GameSocket.On<string>("game:init", OnListenEvent);
     GameSocket.On<string>("result", OnListenEvent);
     GameSocket.On<string>("pong", OnPongReceived);
+    GameSocket.On<string>("balance:sync", OnBalanceSync);
 
     Manager.Open();
   }
@@ -202,6 +210,69 @@ public class SocketIOManager : MonoBehaviour
   private void OnListenEvent(string data)
   {
     ParseResponse(data);
+  }
+
+  private void OnBalanceSync(string data)
+  {
+    BalanceSyncPayload syncPayload = JsonConvert.DeserializeObject<BalanceSyncPayload>(data);
+    if (syncPayload == null) return;
+
+    if (PlayerData == null) PlayerData = new Player();
+    PlayerData.balance = syncPayload.balance;
+
+    bJController.UpdateBalanceDisplay(syncPayload.balance);
+  }
+
+  // Called from the WebGL/JS focus path only (UIManager.OnFocusChanged) — never from OnApplicationFocus.
+  internal void HandleFocusChange(bool focus)
+  {
+    hasFocus = focus;
+
+    if (!focus)
+    {
+      focusLostTime = Time.time;
+      if (focusCheckRoutine == null && !isExiting && !isBeingDestroyed)
+        focusCheckRoutine = StartCoroutine(FocusTimeoutCheck());
+    }
+    else
+    {
+      if (focusCheckRoutine != null)
+      {
+        StopCoroutine(focusCheckRoutine);
+        focusCheckRoutine = null;
+      }
+    }
+  }
+
+  private IEnumerator FocusTimeoutCheck()
+  {
+    while (!hasFocus && !isExiting && !isBeingDestroyed)
+    {
+      if (Time.time - focusLostTime >= maxBackgroundTime)
+      {
+        Debug.LogWarning("[SOCKET] Background timeout — closing connection");
+        ResetPingRoutine();
+
+        if (Manager != null)
+        {
+          try { Manager.Close(); }
+          catch (Exception e) { Debug.LogWarning($"[SOCKET] Focus close error: {e.Message}"); }
+        }
+
+        UiManager.DisconnectionPopup();
+        focusCheckRoutine = null;
+        yield break;
+      }
+
+      yield return new WaitForSecondsRealtime(1f);
+    }
+
+    focusCheckRoutine = null;
+  }
+
+  private void OnDestroy()
+  {
+    isBeingDestroyed = true;
   }
 
   private void SendPing()
@@ -282,6 +353,7 @@ public class SocketIOManager : MonoBehaviour
   internal void CloseGame()
   {
     Debug.Log("Unity: Closing Game");
+    isExiting = true;
     StartCoroutine(CloseSocket());
   }
 
@@ -382,6 +454,12 @@ public class ReqPayload
 
 [Serializable]
 public class Player
+{
+  public double balance;
+}
+
+[Serializable]
+public class BalanceSyncPayload
 {
   public double balance;
 }

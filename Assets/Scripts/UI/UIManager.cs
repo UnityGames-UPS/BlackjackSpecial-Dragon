@@ -130,6 +130,21 @@ public class UIManager : MonoBehaviour
 
   #region Unity Lifecycle
 
+  private void Awake()
+  {
+    // JS calls SendMessage(gameObject.name, "OnFocusChanged", "1"/"0") — receiver lives on this GameObject.
+    if (socket != null && socket.JSManager != null)
+      socket.JSManager.RegisterVisibilityListener(gameObject.name);
+  }
+
+  public void OnFocusChanged(string value)
+  {
+    bool focused = value == "1";
+    Debug.Log("UNITY FOCUS CHANGED: " + value + " (focused: " + focused + ")");
+    if (audioManager != null) audioManager.SetMuteAll(!focused);
+    if (socket != null) socket.HandleFocusChange(focused);
+  }
+
   private void Start()
   {
     // Initial visual setup

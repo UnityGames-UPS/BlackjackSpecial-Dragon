@@ -430,7 +430,7 @@ MonoBehaviour:
   UiManager: {fileID: 1141078115}
   JSManager: {fileID: 1381509618}
   TestSocketURI: https://devrealtime.dingdinghouse.com/
-  TestToken: 674dc907b9ab46fb8c578281c26e49b2
+  TestToken: c1a4fb8d68454af09b2657bba47dfc78
   RaycastBlocker: {fileID: 1623683830}
 --- !u!4 &43691434
 Transform:
@@ -11818,9 +11818,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   UIWrapper: {fileID: 1267205763}
   CanvasScaler: {fileID: 1785408836}
-  MatchWidth: 0
-  MatchHeight: 1
-  PortraitMatchHeight: 1
   transitionDuration: 0.2
   waitForRotation: 0.2
 --- !u!1 &1129019663

@@ -19,9 +19,57 @@ public class AudioManager : MonoBehaviour
   private bool isBGMusicON = true;
   private bool isSoundsON = true;
   private const float fadeDuration = 0.2f;
+
+  private readonly Dictionary<AudioSource, bool> preFocusMuteState = new Dictionary<AudioSource, bool>();
+  private bool isForceMuted = false;
+
+  private IEnumerable<AudioSource> AllSources
+  {
+    get
+    {
+      yield return BGAS;
+      yield return ButtonAS;
+      yield return CardFlipAS;
+      yield return ChipSelectAS;
+      yield return WinAS;
+    }
+  }
+
+  // Focus-driven mute — called from BOTH UIManager.OnFocusChanged (JS path) and OnApplicationFocus.
+  // Never touches the user's own music/sound choice; it captures and restores each source's .mute.
+  internal void SetMuteAll(bool forceMute)
+  {
+    if (forceMute == isForceMuted) return; // already in that state — don't re-capture/re-restore
+    isForceMuted = forceMute;
+
+    foreach (AudioSource source in AllSources)
+    {
+      if (source == null) continue;
+
+      if (forceMute)
+      {
+        preFocusMuteState[source] = source.mute;
+        source.mute = true;
+      }
+      else
+      {
+        source.mute = preFocusMuteState.TryGetValue(source, out bool prevMuted) ? prevMuted : source.mute;
+      }
+    }
+  }
+
+  // Native/editor focus path — calls the SAME method the WebGL OnFocusChanged path calls.
+  private void OnApplicationFocus(bool focus)
+  {
+    SetMuteAll(!focus);
+  }
+
   internal void ToggleBGAudio()
   {
     if (BGAS == null) return;
+
+    // An explicit user interaction proves the game really has focus — a stale forced-mute must not win.
+    SetMuteAll(false);
 
     BGAS.DOKill(); // stop previous tweens
     PlayButtonAudio();
@@ -51,6 +99,7 @@ public class AudioManager : MonoBehaviour
 
   internal void ToggleSoundsAudio()
   {
+    SetMuteAll(false);
     PlayButtonAudio();
     isSoundsON = !isSoundsON;
     SoundButton_Image.sprite = SoundButton_Sprites[isSoundsON ? 0 : 1];
