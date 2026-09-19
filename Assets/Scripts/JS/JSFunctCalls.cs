@@ -11,7 +11,7 @@ public class JSFunctCalls : MonoBehaviour
 
   [DllImport("__Internal")] private static extern void RegisterTokenListener(string gameObjectName, string methodName);
 
-  // Start, not Awake: OrientationChange.Awake must run before the initial dimensions callback.
+  // Start, not Awake: the receiver's Awake must run before the initial dimensions callback.
   void Start()
   {
     RegisterDimensionsListener();

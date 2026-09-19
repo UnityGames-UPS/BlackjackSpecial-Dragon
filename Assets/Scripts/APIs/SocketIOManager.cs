@@ -21,9 +21,9 @@ public class SocketIOManager : MonoBehaviour
   internal bool IsResultDone = false;
 
   internal string SocketURI = null;
-  protected string NameSpace = "playground";
+  protected string nameSpace = "playground";
   protected string myAuth;
-  protected string nameSpace;
+  // protected string nameSpace;
 
   private SocketManager Manager;
   private Socket GameSocket;
@@ -134,14 +134,14 @@ public class SocketIOManager : MonoBehaviour
     this.Manager = new SocketManager(new Uri(SocketURI), options);
 #endif
 
-    if (string.IsNullOrEmpty(NameSpace) | string.IsNullOrWhiteSpace(NameSpace))
+    if (string.IsNullOrEmpty(nameSpace) | string.IsNullOrWhiteSpace(nameSpace))
     {
       GameSocket = this.Manager.Socket;
     }
     else
     {
-      Debug.Log("Namespace used :" + NameSpace);
-      GameSocket = this.Manager.GetSocket("/" + NameSpace);
+      Debug.Log("Namespace used :" + nameSpace);
+      GameSocket = this.Manager.GetSocket("/" + nameSpace);
     }
     // Set subscriptions
     GameSocket.On<ConnectResponse>(SocketIOEventTypes.Connect, OnConnected);

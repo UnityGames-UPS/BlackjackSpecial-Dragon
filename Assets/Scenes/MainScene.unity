@@ -430,7 +430,11 @@ MonoBehaviour:
   UiManager: {fileID: 1141078115}
   JSManager: {fileID: 1381509618}
   TestSocketURI: https://devrealtime.dingdinghouse.com/
+<<<<<<< HEAD
   TestToken: 5279d1416c8b48d6bfc4dd05359d898a
+=======
+  TestToken: 12776b46e2434a6cbdf8df501c7ec068
+>>>>>>> 2a1835e (fix namespace issue)
   RaycastBlocker: {fileID: 1623683830}
 --- !u!4 &43691434
 Transform:
