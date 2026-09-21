@@ -106,6 +106,7 @@ public class BJController : MonoBehaviour
     UpdateBalance(socket.PlayerData.balance);
     Winnings_Text.text = 0.ToString("N2");
     UpdateWinnings(0);
+    amount_array = socket.bets.ToArray();
 
     maxBetAmount = socket.bets[^1];
     int index = 0;
@@ -215,6 +216,7 @@ public class BJController : MonoBehaviour
     uiManager.ShowInitialButtons();
 
     GameObject coin = Instantiate(Coins_Prefab[CoinCounter], CoinContainers_Transform[CoinCounter]);
+    coin.GetComponentInChildren<TMP_Text>().text = socket.bets[CoinCounter].ToString();
     coin.transform.localPosition = Vector2.zero;
     coin.transform.SetParent(ChipsParent_Transform);
     coin.transform.localScale = Vector3.one;
