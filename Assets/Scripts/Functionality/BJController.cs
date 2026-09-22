@@ -250,6 +250,7 @@ public class BJController : MonoBehaviour
     uiManager.ShowInitialButtons();
 
     GameObject coin = Instantiate(Coins_Prefab[CoinCounter], CoinContainers_Transform[CoinCounter]);
+    coin.GetComponentInChildren<TMP_Text>().text = socket.bets[CoinCounter].ToString();
     coin.transform.localPosition = Vector2.zero;
     coin.transform.SetParent(MultiplyChipsParent_Transform);
     coin.transform.localScale = Vector3.one;
@@ -306,6 +307,7 @@ public class BJController : MonoBehaviour
         {
           GameObject c = Instantiate(Coins_Prefab[i + 1], CoinContainers_Transform[i + 1]);
           c.transform.SetParent(ChipsParent_Transform);
+          c.GetComponentInChildren<TMP_Text>().text = nextValue.ToString();
           instantiated_Coins.Add(c);
           instantiated_Value.Add(nextValue);
           betHistory.Add("main_" + nextValue);
@@ -357,6 +359,7 @@ public class BJController : MonoBehaviour
         {
           GameObject c = Instantiate(Coins_Prefab[i + 1], CoinContainers_Transform[i + 1]);
           c.transform.SetParent(MultiplyChipsParent_Transform);
+          c.GetComponentInChildren<TMP_Text>().text = nextValue.ToString();
           multiplyinstantiated_Coins.Add(c);
           multiplyinstantiated_Value.Add(nextValue);
           betHistory.Add("multiplier_" + nextValue);
@@ -1000,6 +1003,7 @@ public class BJController : MonoBehaviour
     Transform parent = isSideBet ? MultiplyChipsParent_Transform : ChipsParent_Transform;
 
     GameObject obj = Instantiate(Coins_Prefab[prefabIndex], CoinContainers_Transform[prefabIndex]);
+    obj.GetComponentInChildren<TMP_Text>().text = value.ToString();
     obj.transform.localPosition = Vector2.zero;
     obj.transform.SetParent(parent);
     obj.transform.localScale = Vector3.one;
